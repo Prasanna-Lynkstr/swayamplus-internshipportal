@@ -9,7 +9,10 @@ import {
   Table,
 } from '@sequelize/core/decorators-legacy';
 
-@Table({ tableName: 'otp_codes' })
+@Table({
+  tableName: 'otp_codes',
+  indexes: [{ fields: ['identifier'] }],
+})
 export class OtpCode extends Model<InferAttributes<OtpCode>, InferCreationAttributes<OtpCode>> {
   @Attribute(DataTypes.INTEGER)
   @PrimaryKey

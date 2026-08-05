@@ -6,8 +6,24 @@ import { useAuth } from '@/lib/auth';
 import { apiFetch, ApiError } from '@/lib/api';
 import { Button } from '@/components/ui/Button';
 import { Textarea } from '@/components/ui/Input';
+import type { ApplicationStatus } from '@/lib/types';
 
-export function ApplyForm({ internshipId }: { internshipId: number }) {
+const STATUS_COPY: Record<ApplicationStatus, string> = {
+  applied: "You've already applied to this internship.",
+  shortlisted: "You've been shortlisted for this internship!",
+  interviewing: "You're in the interview stage for this internship.",
+  offered: "You've received an offer for this internship!",
+  rejected: 'Your application to this internship was not selected.',
+  withdrawn: 'You withdrew your application to this internship.',
+};
+
+export function ApplyForm({
+  internshipId,
+  initialApplicationStatus = null,
+}: {
+  internshipId: number;
+  initialApplicationStatus?: ApplicationStatus | null;
+}) {
   const { user, token } = useAuth();
   const [coverNote, setCoverNote] = useState('');
   const [status, setStatus] = useState<'idle' | 'submitting' | 'done' | 'error'>('idle');
@@ -36,10 +52,21 @@ export function ApplyForm({ internshipId }: { internshipId: number }) {
     return (
       <div className="rounded-sp-lg bg-sp-good-soft p-5 text-sm font-semibold text-sp-good">
         Application submitted! Track its status from your{' '}
-        <Link href="/internships" className="underline">
+        <Link href="/applications" className="underline">
           applications
         </Link>
         .
+      </div>
+    );
+  }
+
+  if (initialApplicationStatus) {
+    return (
+      <div className="rounded-sp-lg bg-sp-bg-sunken p-5 text-sm text-sp-ink-2">
+        <p className="font-semibold text-sp-navy">{STATUS_COPY[initialApplicationStatus]}</p>
+        <Link href="/applications" className="mt-1 inline-block font-bold text-sp-blue">
+          View your applications
+        </Link>
       </div>
     );
   }

@@ -15,7 +15,12 @@ export { Employer } from './employer.model.js';
 export type { EmployerVerificationStatus } from './employer.model.js';
 export { PlatformSetting } from './platform-setting.model.js';
 export { Internship } from './internship.model.js';
-export type { InternshipMode, InternshipStatus } from './internship.model.js';
+export type {
+  InternshipMode,
+  InternshipStatus,
+  EmploymentType,
+  ScheduleType,
+} from './internship.model.js';
 export { InternshipApplication } from './internship-application.model.js';
 export type { ApplicationStatus } from './internship-application.model.js';
 export { InternshipRequest } from './internship-request.model.js';

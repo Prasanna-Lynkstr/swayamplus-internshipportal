@@ -8,4 +8,8 @@ export class UpdateSettingsDto {
   @IsOptional()
   @IsBoolean()
   autoApproveEmployers?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  emailNotificationsEnabled?: boolean;
 }

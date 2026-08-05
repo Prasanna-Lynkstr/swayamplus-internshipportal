@@ -22,6 +22,11 @@ export class PlatformSetting extends Model<
   @Default(false)
   declare autoApproveEmployers: CreationOptional<boolean>;
 
+  @Attribute(DataTypes.BOOLEAN)
+  @NotNull
+  @Default(true)
+  declare emailNotificationsEnabled: CreationOptional<boolean>;
+
   declare createdAt: CreationOptional<Date>;
   declare updatedAt: CreationOptional<Date>;
 }

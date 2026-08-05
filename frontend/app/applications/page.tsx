@@ -7,7 +7,7 @@ import { apiFetch } from '@/lib/api';
 import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
-import type { InternshipApplication } from '@/lib/types';
+import type { InternshipApplication, PaginatedResult } from '@/lib/types';
 
 const STATUS_TONE: Record<string, 'orange' | 'good' | 'danger' | 'neutral'> = {
   applied: 'neutral',
@@ -27,8 +27,8 @@ export default function MyApplicationsPage() {
   const load = () => {
     setLoading(true);
     setError('');
-    apiFetch<InternshipApplication[]>('/applications/me', { token })
-      .then(setApplications)
+    apiFetch<PaginatedResult<InternshipApplication>>('/applications/me', { token })
+      .then((result) => setApplications(result.items))
       .catch(() => setError('Could not load your applications. Please refresh the page.'))
       .finally(() => setLoading(false));
   };
@@ -65,12 +65,14 @@ export default function MyApplicationsPage() {
       <h1 className="text-2xl font-extrabold text-sp-navy">Your applications</h1>
       {error && <p className="text-sm font-semibold text-sp-danger">{error}</p>}
       {applications.length === 0 ? (
-        <Card className="p-10 text-center text-sp-ink-3">
-          You haven&apos;t applied to any internships yet.{' '}
-          <Link href="/internships" className="font-bold text-sp-blue">
-            Browse internships →
-          </Link>
-        </Card>
+        !error && (
+          <Card className="p-10 text-center text-sp-ink-3">
+            You haven&apos;t applied to any internships yet.{' '}
+            <Link href="/internships" className="font-bold text-sp-blue">
+              Browse internships →
+            </Link>
+          </Card>
+        )
       ) : (
         <div className="flex flex-col gap-4">
           {applications.map((app) => (

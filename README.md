@@ -69,9 +69,47 @@ bun run dev              # http://localhost:3000
 
 See `backend/src/modules/*` — one module per resource (`auth`, `students`,
 `employers`, `admin`, `platform-settings`, `internships`, `applications`,
-`notifications`), matching the endpoints in the original spec. All mutating
-endpoints enforce ownership in the service layer (a student only ever touches their
-own applications; an employer only ever touches their own listings/applicants).
+`internship-requests`, `notifications`), matching the endpoints in the original
+spec. All mutating endpoints enforce ownership in the service layer (a student
+only ever touches their own applications; an employer only ever touches their
+own listings/applicants).
+
+`GET /internships` is paginated for scale — it returns
+`{ items, total, page, pageSize, totalPages }` rather than a bare array, and
+accepts `page`, `pageSize` (max 100), `category`, `employmentType`, and `sort`
+(`newest` | `stipend_high` | `deadline_soon`) query params alongside the
+existing filters. `GET /internships/categories` returns `[{ category, count }]`
+for the full closed taxonomy (`backend/src/common/constants/categories.ts`,
+mirrored in `frontend/lib/categories.ts`) — including zero-count categories —
+to drive the browse-page chip row and the post-internship form's dropdown.
+
+An internship's `category` is a closed enum (not free text); `skillTags`,
+`responsibilities`, `perks`, and `eligibility` remain free-text string arrays.
+A "paid" internship is derived from `stipendMin`/`stipendMax` being set rather
+than stored as its own column.
+
+### Judgment calls worth knowing about
+
+- **`employmentType` (full-time/part-time)** — referenced throughout the
+  browse/detail page spec (filter bar, card meta row, "Type/Timing" info card)
+  but not listed as its own field in the original data-model spec. Added it as
+  a real column rather than reusing `mode` (remote/onsite/hybrid), since the
+  two are independent dimensions.
+- **Share / Save / Add-to-calendar icons** on cards and the detail page are
+  real, working features scoped to what's actually buildable without new
+  backend surface: share uses the Web Share API (falling back to a clipboard
+  copy), save is a `localStorage`-backed per-browser bookmark list
+  (`frontend/lib/useSavedInternships.ts`), and the calendar icon opens a
+  prefilled Google Calendar event for the application deadline. None of these
+  are decorative no-ops.
+- **The "Filters" pill** in the filter bar shows the active-filter count and
+  doubles as a real "clear all" action, rather than opening a separate
+  slide-out panel duplicating the adjacent dropdowns.
+- Compensation tab, reviews/ratings, FAQs & Discussions, and a
+  report-an-issue flow are explicitly out of scope for this MVP (they need
+  moderation/abuse-handling beyond a 4-week build) — the detail page is a
+  single scrolling section specifically so a tabbed version can be added
+  later without a rewrite.
 
 ## Stubbed for later
 
@@ -83,8 +121,14 @@ before this module runs anywhere beyond local/dev:
   with a real provider (SES, SMTP, Twilio, etc.) behind the same
   `AuthService.requestOtp` method.
 - **Email notifications** — `backend/src/modules/notifications/notifications.service.ts`
-  logs to the console instead of sending. Replace the two `notify*` methods with a
-  real provider.
+  sends real email via SMTP (any standard provider — ZeptoMail, SES, Mailgun,
+  Postmark, etc.) once `SMTP_HOST`/`SMTP_USER`/`SMTP_PASSWORD`/`SMTP_FROM` are
+  set in `.env` (see `.env.example` for ZeptoMail-flavored example values).
+  Falls back to a console-log stub when `SMTP_HOST` is empty. Also gated by
+  the "Email notifications" toggle on `/admin/employers`
+  (`platform_settings.emailNotificationsEnabled`) — an admin can pause all
+  outbound email at runtime without touching env vars or redeploying; both
+  the env config and the toggle must be on for a real send to happen.
 - **File storage** — resumes and employer verification documents go through a
   `StorageService` swap boundary (`backend/src/modules/storage/`), toggled by the
   `STORAGE_DRIVER` env var: `local` (default) writes to disk under

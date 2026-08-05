@@ -1,5 +1,5 @@
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api';
-const API_ORIGIN = API_URL.replace(/\/api\/?$/, '');
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api/v1';
+const API_ORIGIN = API_URL.replace(/\/api(\/v1)?\/?$/, '');
 
 /**
  * Uploaded file URLs are either a relative `/uploads/...` path (local disk driver)

@@ -1,6 +1,7 @@
 'use client';
 
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import { useRouter } from 'next/navigation';
 import type { AuthUser } from './types';
 
 const TOKEN_COOKIE = 'sp_token';
@@ -34,6 +35,7 @@ interface AuthContextValue {
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
+  const router = useRouter();
   const [token, setToken] = useState<string | null>(null);
   const [user, setUser] = useState<AuthUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -58,6 +60,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setCookie(USER_COOKIE, JSON.stringify(newUser));
     setToken(newToken);
     setUser(newUser);
+    // Server Components (Header/Footer role-aware links, internship detail
+    // ownership checks) read these cookies via next/headers and are cached
+    // by the router — without this they'd keep showing the previous
+    // session's role until a hard reload.
+    router.refresh();
   };
 
   const logout = () => {
@@ -65,6 +72,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     clearCookie(USER_COOKIE);
     setToken(null);
     setUser(null);
+    router.refresh();
   };
 
   return (

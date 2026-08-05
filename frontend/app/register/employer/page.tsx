@@ -1,8 +1,10 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth';
 import { apiFetch, ApiError } from '@/lib/api';
+import { resolveFileUrl } from '@/lib/files';
 import { OtpFlow } from '@/components/auth/OtpFlow';
 import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
@@ -19,6 +21,7 @@ const STATUS_TONE = {
 
 export default function EmployerRegisterPage() {
   const { user, token } = useAuth();
+  const router = useRouter();
   const [registrationOpen, setRegistrationOpen] = useState<boolean | null>(null);
   const [verified, setVerified] = useState(false);
   const [profile, setProfile] = useState<Partial<Employer>>({});
@@ -27,6 +30,9 @@ export default function EmployerRegisterPage() {
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState('');
   const [uploadStatus, setUploadStatus] = useState<'idle' | 'uploading' | 'done' | 'error'>('idle');
+  // undefined = still checking, true = complete (redirecting to dashboard),
+  // false = incomplete (show the form below).
+  const [profileComplete, setProfileComplete] = useState<boolean | undefined>(undefined);
 
   const isEmployer = user?.role === 'employer';
 
@@ -40,11 +46,21 @@ export default function EmployerRegisterPage() {
     if (!isEmployer || !token) return;
     apiFetch<Employer>('/employers/me', { token })
       .then((e) => {
+        if (e.profileComplete) {
+          // Already set up — landing on the profile form again on every
+          // login is pointless busywork. Send them straight to the
+          // dashboard instead, whether this was a fresh OTP verify or a
+          // returning, already-authenticated visit to this page.
+          setProfileComplete(true);
+          router.replace('/employer/dashboard');
+          return;
+        }
+        setProfileComplete(false);
         setProfile(e);
         setTagsText((e.industryTags ?? []).join(', '));
       })
-      .catch(() => {});
-  }, [isEmployer, token]);
+      .catch(() => setProfileComplete(false));
+  }, [isEmployer, token, router]);
 
   if (registrationOpen === null) {
     return <p className="text-center text-sp-ink-3">Loading…</p>;
@@ -78,6 +94,10 @@ export default function EmployerRegisterPage() {
     );
   }
 
+  if (profileComplete === undefined || profileComplete === true) {
+    return <p className="text-center text-sp-ink-3">Loading…</p>;
+  }
+
   const submitProfile = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
@@ -107,7 +127,7 @@ export default function EmployerRegisterPage() {
     }
   };
 
-  const uploadDocument = async (file: File) => {
+  const uploadDocument = async (file: File, input: HTMLInputElement) => {
     setUploadStatus('uploading');
     try {
       const formData = new FormData();
@@ -119,6 +139,11 @@ export default function EmployerRegisterPage() {
       });
       setProfile(updated);
       setUploadStatus('done');
+      // Otherwise the native file input keeps showing the just-selected
+      // filename, which then sits next to the server's randomized storage
+      // filename below — two different names for the same file reads as a
+      // mismatch/error rather than a successful upload.
+      input.value = '';
     } catch {
       setUploadStatus('error');
     }
@@ -209,7 +234,7 @@ export default function EmployerRegisterPage() {
         <input
           type="file"
           accept=".pdf,.png,.jpg,.jpeg"
-          onChange={(e) => e.target.files?.[0] && uploadDocument(e.target.files[0])}
+          onChange={(e) => e.target.files?.[0] && uploadDocument(e.target.files[0], e.target)}
           className="text-sm"
         />
         {uploadStatus === 'uploading' && <p className="mt-2 text-sm text-sp-ink-3">Uploading…</p>}
@@ -221,7 +246,15 @@ export default function EmployerRegisterPage() {
         )}
         {profile.verificationDocumentUrl && (
           <p className="mt-2 text-sm text-sp-ink-3">
-            Current file: {profile.verificationDocumentUrl.split('/').pop()}
+            Document on file —{' '}
+            <a
+              href={resolveFileUrl(profile.verificationDocumentUrl)}
+              target="_blank"
+              rel="noreferrer"
+              className="font-semibold text-sp-blue"
+            >
+              View document
+            </a>
           </p>
         )}
       </Card>

@@ -5,11 +5,23 @@ import { useAuth } from '@/lib/auth';
 import { apiFetch } from '@/lib/api';
 import { AdminTabs } from '@/components/layout/AdminTabs';
 import { Card } from '@/components/ui/Card';
-import type { InternshipRequest } from '@/lib/types';
+import { Button } from '@/components/ui/Button';
+import { Input } from '@/components/ui/Input';
+import type { InternshipRequest, PaginatedResult } from '@/lib/types';
+
+const EMPTY_RESULT: PaginatedResult<InternshipRequest> = {
+  items: [],
+  total: 0,
+  page: 1,
+  pageSize: 12,
+  totalPages: 1,
+};
 
 export default function AdminRequestsPage() {
   const { token } = useAuth();
-  const [requests, setRequests] = useState<InternshipRequest[]>([]);
+  const [result, setResult] = useState<PaginatedResult<InternshipRequest>>(EMPTY_RESULT);
+  const [q, setQ] = useState('');
+  const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -17,33 +29,57 @@ export default function AdminRequestsPage() {
     if (!token) return;
     setLoading(true);
     setError('');
-    apiFetch<InternshipRequest[]>('/admin/internship-requests', { token })
-      .then(setRequests)
-      .catch(() => setError('Could not load internship requests. Please refresh the page.'))
-      .finally(() => setLoading(false));
-  }, [token]);
+    // Debounced so typing a search term doesn't fire a request per keystroke.
+    const timeout = setTimeout(() => {
+      const params = new URLSearchParams({ page: String(page) });
+      if (q) params.set('q', q);
+      apiFetch<PaginatedResult<InternshipRequest>>(`/admin/internship-requests?${params.toString()}`, {
+        token,
+      })
+        .then(setResult)
+        .catch(() => setError('Could not load internship requests. Please refresh the page.'))
+        .finally(() => setLoading(false));
+    }, 300);
+    return () => clearTimeout(timeout);
+  }, [token, q, page]);
 
   return (
     <div className="flex flex-col gap-8">
       <div>
         <h1 className="text-2xl font-extrabold text-sp-navy">Platform administration</h1>
         <p className="mt-1 text-sp-ink-2">
-          Domains and roles students couldn&apos;t find a match for — use this as a signal for
+          Categories and roles students couldn&apos;t find a match for — use this as a signal for
           which employers to bring on.
         </p>
       </div>
 
       <AdminTabs />
 
+      <div className="flex items-center gap-3">
+        <span className="text-sm font-semibold text-sp-ink-2">
+          {result.total} request{result.total === 1 ? '' : 's'}
+        </span>
+        <div className="w-64">
+          <Input
+            placeholder="Search domain or student email"
+            value={q}
+            onChange={(e) => {
+              setQ(e.target.value);
+              setPage(1);
+            }}
+          />
+        </div>
+      </div>
+
       {loading ? (
         <p className="text-sp-ink-3">Loading…</p>
       ) : error ? (
         <p className="text-sm font-semibold text-sp-danger">{error}</p>
-      ) : requests.length === 0 ? (
+      ) : result.items.length === 0 ? (
         <Card className="p-10 text-center text-sp-ink-3">No requests yet.</Card>
       ) : (
         <div className="flex flex-col gap-4">
-          {requests.map((req) => (
+          {result.items.map((req) => (
             <Card key={req.id} className="p-6">
               <div className="flex flex-wrap items-baseline justify-between gap-2">
                 <h3 className="font-bold text-sp-navy">{req.domain}</h3>
@@ -62,6 +98,28 @@ export default function AdminRequestsPage() {
               {req.notes && <p className="mt-2 text-sm text-sp-ink-2">&ldquo;{req.notes}&rdquo;</p>}
             </Card>
           ))}
+        </div>
+      )}
+
+      {result.totalPages > 1 && (
+        <div className="flex items-center justify-center gap-3">
+          <Button
+            variant="secondary"
+            disabled={page <= 1}
+            onClick={() => setPage((p) => Math.max(1, p - 1))}
+          >
+            ← Prev
+          </Button>
+          <span className="text-sm text-sp-ink-2">
+            Page {result.page} of {result.totalPages}
+          </span>
+          <Button
+            variant="secondary"
+            disabled={page >= result.totalPages}
+            onClick={() => setPage((p) => Math.min(result.totalPages, p + 1))}
+          >
+            Next →
+          </Button>
         </div>
       )}
     </div>

@@ -8,48 +8,50 @@ import { AdminTabs } from '@/components/layout/AdminTabs';
 import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
-import type { Employer, PlatformSettings } from '@/lib/types';
+import { Input } from '@/components/ui/Input';
+import type { Employer, PaginatedResult } from '@/lib/types';
+
+const EMPTY_RESULT: PaginatedResult<Employer> = {
+  items: [],
+  total: 0,
+  page: 1,
+  pageSize: 12,
+  totalPages: 1,
+};
 
 export default function AdminEmployersPage() {
   const { token } = useAuth();
-  const [settings, setSettings] = useState<PlatformSettings | null>(null);
-  const [pending, setPending] = useState<Employer[]>([]);
+  const [pending, setPending] = useState<PaginatedResult<Employer>>(EMPTY_RESULT);
+  const [q, setQ] = useState('');
+  const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+  // Separate from actionError: a load failure means there's no data to show,
+  // so it's fine to replace the whole page with it. An action failure (below)
+  // happens after data is already loaded and should never hide that data.
+  const [loadError, setLoadError] = useState('');
+  const [actionError, setActionError] = useState('');
 
   const load = () => {
     if (!token) return;
     setLoading(true);
-    setError('');
-    Promise.all([
-      apiFetch<PlatformSettings>('/admin/settings', { token }),
-      apiFetch<Employer[]>('/admin/employers/pending', { token }),
-    ])
-      .then(([s, p]) => {
-        setSettings(s);
-        setPending(p);
-      })
-      .catch(() => setError('Could not load admin data. Please refresh the page.'))
+    setLoadError('');
+    const params = new URLSearchParams({ page: String(page) });
+    if (q) params.set('q', q);
+    apiFetch<PaginatedResult<Employer>>(`/admin/employers/pending?${params.toString()}`, { token })
+      .then(setPending)
+      .catch(() => setLoadError('Could not load pending employers. Please refresh the page.'))
       .finally(() => setLoading(false));
   };
 
-  useEffect(load, [token]);
-
-  const toggleRegistration = async () => {
-    if (!settings) return;
-    try {
-      const updated = await apiFetch<PlatformSettings>('/admin/settings', {
-        method: 'PATCH',
-        token,
-        body: { employerRegistrationOpen: !settings.employerRegistrationOpen },
-      });
-      setSettings(updated);
-    } catch {
-      setError('Could not update settings. Please try again.');
-    }
-  };
+  useEffect(() => {
+    if (!token) return;
+    // Debounced so typing a search term doesn't fire a request per keystroke.
+    const timeout = setTimeout(load, 300);
+    return () => clearTimeout(timeout);
+  }, [token, q, page]);
 
   const decide = async (employerId: number, status: 'approved' | 'rejected') => {
+    setActionError('');
     try {
       await apiFetch(`/admin/employers/${employerId}/verify`, {
         method: 'PATCH',
@@ -58,7 +60,7 @@ export default function AdminEmployersPage() {
       });
       load();
     } catch {
-      setError('Could not update this employer. Please try again.');
+      setActionError('Could not update this employer. Please try again.');
     }
   };
 
@@ -66,38 +68,38 @@ export default function AdminEmployersPage() {
     <div className="flex flex-col gap-8">
       <div>
         <h1 className="text-2xl font-extrabold text-sp-navy">Platform administration</h1>
-        <p className="mt-1 text-sp-ink-2">Approve employers and control platform-wide settings.</p>
+        <p className="mt-1 text-sp-ink-2">Review and approve employer registrations.</p>
       </div>
 
       <AdminTabs />
 
       {loading ? (
         <p className="text-sp-ink-3">Loading…</p>
-      ) : error ? (
-        <p className="text-sm font-semibold text-sp-danger">{error}</p>
+      ) : loadError ? (
+        <p className="text-sm font-semibold text-sp-danger">{loadError}</p>
       ) : (
         <>
-      <Card className="flex flex-wrap items-center justify-between gap-4 p-6">
-        <div>
-          <h2 className="text-lg font-bold text-sp-navy">Employer registration</h2>
-          <p className="text-sm text-sp-ink-2">
-            {settings?.employerRegistrationOpen
-              ? 'New employers can currently self-register.'
-              : 'Employer registration is closed to new sign-ups.'}
-          </p>
-        </div>
-        <Button variant={settings?.employerRegistrationOpen ? 'secondary' : 'primary'} onClick={toggleRegistration}>
-          {settings?.employerRegistrationOpen ? 'Close registration' : 'Open registration'}
-        </Button>
-      </Card>
+      {actionError && <p className="text-sm font-semibold text-sp-danger">{actionError}</p>}
 
       <div>
-        <h2 className="mb-4 text-lg font-bold text-sp-navy">Pending verification ({pending.length})</h2>
-        {pending.length === 0 ? (
+        <div className="mb-4 flex items-center gap-3">
+          <h2 className="text-lg font-bold text-sp-navy">Pending verification ({pending.total})</h2>
+          <div className="w-64">
+            <Input
+              placeholder="Search organization or email"
+              value={q}
+              onChange={(e) => {
+                setQ(e.target.value);
+                setPage(1);
+              }}
+            />
+          </div>
+        </div>
+        {pending.items.length === 0 ? (
           <Card className="p-10 text-center text-sp-ink-3">No employers awaiting review.</Card>
         ) : (
           <div className="flex flex-col gap-4">
-            {pending.map((employer) => (
+            {pending.items.map((employer) => (
               <Card key={employer.id} className="flex flex-wrap items-center justify-between gap-4 p-6">
                 <div>
                   <div className="mb-1 flex items-center gap-2">
@@ -128,6 +130,27 @@ export default function AdminEmployersPage() {
                 </div>
               </Card>
             ))}
+          </div>
+        )}
+        {pending.totalPages > 1 && (
+          <div className="mt-4 flex items-center justify-center gap-3">
+            <Button
+              variant="secondary"
+              disabled={page <= 1}
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+            >
+              ← Prev
+            </Button>
+            <span className="text-sm text-sp-ink-2">
+              Page {pending.page} of {pending.totalPages}
+            </span>
+            <Button
+              variant="secondary"
+              disabled={page >= pending.totalPages}
+              onClick={() => setPage((p) => Math.min(pending.totalPages, p + 1))}
+            >
+              Next →
+            </Button>
           </div>
         )}
       </div>

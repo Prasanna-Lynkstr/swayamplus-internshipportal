@@ -4,8 +4,12 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
 const TABS = [
+  { href: '/admin/dashboard', label: 'Dashboard' },
   { href: '/admin/employers', label: 'Employers' },
+  { href: '/admin/internships', label: 'Internships' },
+  { href: '/admin/students', label: 'Students' },
   { href: '/admin/requests', label: 'Internship requests' },
+  { href: '/admin/settings', label: 'Settings' },
 ];
 
 export function AdminTabs() {

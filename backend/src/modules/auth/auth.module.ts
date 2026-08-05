@@ -13,7 +13,9 @@ import { JwtStrategy } from './jwt.strategy.js';
       imports: [ConfigModule],
       inject: [ConfigService],
       useFactory: (config: ConfigService) => ({
-        secret: config.get<string>('JWT_SECRET', 'change-me-in-production'),
+        // No fallback: a missing JWT_SECRET should fail startup loudly, not sign
+        // every token with a well-known default string.
+        secret: config.getOrThrow<string>('JWT_SECRET'),
         signOptions: { expiresIn: config.get<string>('JWT_EXPIRES_IN', '7d') },
       }),
     }),

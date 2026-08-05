@@ -18,7 +18,7 @@ export function RequestInternshipForm({ variant = 'inline' }: { variant?: 'inlin
   const heading = "Can't find what you're looking for?";
   const body =
     variant === 'empty-state'
-      ? "Tell us the domain or role you're after and we'll pass it on to employers we're onboarding."
+      ? "Tell us the category or role you're after and we'll pass it on to employers we're onboarding."
       : "Let us know what you're looking for — it helps us bring in the right employers.";
 
   if (!user) {
@@ -29,7 +29,7 @@ export function RequestInternshipForm({ variant = 'inline' }: { variant?: 'inlin
           <Link href="/register/student" className="font-bold text-sp-blue">
             Log in as a student
           </Link>{' '}
-          to request an internship domain we don&apos;t have yet.
+          to request an internship category we don&apos;t have yet.
         </p>
       </div>
     );
@@ -73,7 +73,7 @@ export function RequestInternshipForm({ variant = 'inline' }: { variant?: 'inlin
           onClick={() => setOpen(true)}
           className="text-sm font-bold text-sp-blue hover:underline"
         >
-          Request a domain →
+          Request a category →
         </button>
       </div>
     );
@@ -85,7 +85,7 @@ export function RequestInternshipForm({ variant = 'inline' }: { variant?: 'inlin
       <p className="mb-4 text-sm text-sp-ink-2">{body}</p>
       <form onSubmit={submit} className="flex flex-col gap-3">
         <div>
-          <Label htmlFor="request-domain">Domain / role you're looking for</Label>
+          <Label htmlFor="request-domain">Category / role you're looking for</Label>
           <Input
             id="request-domain"
             required

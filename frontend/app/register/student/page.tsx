@@ -23,16 +23,29 @@ export default function StudentRegisterPage() {
   const [resumeStatus, setResumeStatus] = useState<'idle' | 'uploading' | 'done' | 'error'>('idle');
 
   const isStudent = user?.role === 'student';
+  // undefined = still checking, true = complete (redirecting to dashboard),
+  // false = incomplete (show the form below).
+  const [profileComplete, setProfileComplete] = useState<boolean | undefined>(undefined);
 
   useEffect(() => {
     if (!isStudent || !token) return;
     apiFetch<Student>('/students/me', { token })
       .then((s) => {
+        if (s.profileComplete) {
+          // Already set up — landing on the profile form again on every
+          // login is pointless busywork. Send them straight to the
+          // dashboard instead, whether this was a fresh OTP verify or a
+          // returning, already-authenticated visit to this page.
+          setProfileComplete(true);
+          router.replace('/student/dashboard');
+          return;
+        }
+        setProfileComplete(false);
         setProfile(s);
         setSkillsText((s.skills ?? []).join(', '));
       })
-      .catch(() => {});
-  }, [isStudent, token]);
+      .catch(() => setProfileComplete(false));
+  }, [isStudent, token, router]);
 
   if (!isStudent && !verified) {
     return (
@@ -50,6 +63,10 @@ export default function StudentRegisterPage() {
     );
   }
 
+  if (profileComplete === undefined || profileComplete === true) {
+    return <p className="text-center text-sp-ink-3">Loading…</p>;
+  }
+
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
@@ -59,7 +76,13 @@ export default function StudentRegisterPage() {
         method: 'PATCH',
         token,
         body: {
-          ...profile,
+          fullName: profile.fullName || undefined,
+          phone: profile.phone || undefined,
+          collegeName: profile.collegeName || undefined,
+          course: profile.course || undefined,
+          graduationYear: profile.graduationYear || undefined,
+          city: profile.city || undefined,
+          linkedinUrl: profile.linkedinUrl || undefined,
           skills: skillsText
             .split(',')
             .map((s) => s.trim())
@@ -74,7 +97,7 @@ export default function StudentRegisterPage() {
     }
   };
 
-  const uploadResume = async (file: File) => {
+  const uploadResume = async (file: File, input: HTMLInputElement) => {
     setResumeStatus('uploading');
     try {
       const formData = new FormData();
@@ -86,6 +109,11 @@ export default function StudentRegisterPage() {
       });
       setProfile(updated);
       setResumeStatus('done');
+      // Otherwise the native file input keeps showing the just-selected
+      // filename, which then sits next to the server's randomized storage
+      // filename below — two different names for the same file reads as a
+      // mismatch/error rather than a successful upload.
+      input.value = '';
     } catch {
       setResumeStatus('error');
     }
@@ -193,7 +221,7 @@ export default function StudentRegisterPage() {
         <input
           type="file"
           accept=".pdf,.doc,.docx"
-          onChange={(e) => e.target.files?.[0] && uploadResume(e.target.files[0])}
+          onChange={(e) => e.target.files?.[0] && uploadResume(e.target.files[0], e.target)}
           className="text-sm"
         />
         {resumeStatus === 'uploading' && <p className="mt-2 text-sm text-sp-ink-3">Uploading…</p>}
@@ -205,14 +233,14 @@ export default function StudentRegisterPage() {
         )}
         {profile.resumeUrl && (
           <p className="mt-2 text-sm text-sp-ink-3">
-            Current file:{' '}
+            Resume on file —{' '}
             <a
               href={resolveFileUrl(profile.resumeUrl)}
               target="_blank"
               rel="noreferrer"
               className="font-semibold text-sp-blue"
             >
-              {profile.resumeUrl.split('/').pop()}
+              View resume
             </a>
           </p>
         )}

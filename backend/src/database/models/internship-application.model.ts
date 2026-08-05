@@ -26,7 +26,10 @@ export type ApplicationStatus =
   | 'rejected'
   | 'withdrawn';
 
-@Table({ tableName: 'internship_applications' })
+@Table({
+  tableName: 'internship_applications',
+  indexes: [{ fields: ['status'] }],
+})
 export class InternshipApplication extends Model<
   InferAttributes<InternshipApplication>,
   InferCreationAttributes<InternshipApplication>

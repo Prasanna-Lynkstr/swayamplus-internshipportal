@@ -15,7 +15,9 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
-      secretOrKey: configService.get<string>('JWT_SECRET', 'change-me-in-production'),
+      // No fallback: must match the secret AuthModule signs tokens with — see
+      // the comment there on why this fails startup instead of defaulting.
+      secretOrKey: configService.getOrThrow<string>('JWT_SECRET'),
     });
   }
 

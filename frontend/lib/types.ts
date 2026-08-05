@@ -19,6 +19,10 @@ export interface Student {
   resumeUrl: string | null;
   linkedinUrl: string | null;
   user?: { identifier: string };
+  /** Only present on the GET /students/me response. */
+  profileComplete?: boolean;
+  /** Only present on the GET /students/me response. */
+  missingFields?: string[];
 }
 
 export type EmployerVerificationStatus = 'pending' | 'approved' | 'rejected' | 'suspended';
@@ -36,10 +40,16 @@ export interface Employer {
   verificationDocumentUrl: string | null;
   verificationStatus: EmployerVerificationStatus;
   user?: { identifier: string };
+  /** Only present on the GET /employers/me response. */
+  profileComplete?: boolean;
+  /** Only present on the GET /employers/me response. */
+  missingFields?: string[];
 }
 
 export type InternshipMode = 'remote' | 'onsite' | 'hybrid';
 export type InternshipStatus = 'draft' | 'published' | 'closed' | 'archived';
+export type EmploymentType = 'full-time' | 'part-time';
+export type ScheduleType = 'flexible' | 'fixed';
 
 export interface Internship {
   id: number;
@@ -47,17 +57,25 @@ export interface Internship {
   title: string;
   description: string;
   skillTags: string[];
-  domain: string;
+  category: string;
   mode: InternshipMode;
+  employmentType: EmploymentType;
   location: string | null;
   durationWeeks: number;
+  workingDays: number;
+  scheduleType: ScheduleType;
   stipendMin: number | null;
   stipendMax: number | null;
+  responsibilities: string[];
+  perks: string[];
+  eligibility: string[];
   openings: number;
   applicationDeadline: string;
   status: InternshipStatus;
   createdAt: string;
   employer?: Employer;
+  /** Present on GET /internships/:id and GET /internships/mine. */
+  applicationsCount?: number;
 }
 
 export type ApplicationStatus =
@@ -79,9 +97,59 @@ export interface InternshipApplication {
   student?: Student;
 }
 
+export interface PaginatedResult<T> {
+  items: T[];
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+}
+
+export type PaginatedInternships = PaginatedResult<Internship>;
+
+export interface CategoryCount {
+  category: string;
+  count: number;
+}
+
 export interface PlatformSettings {
   employerRegistrationOpen: boolean;
   autoApproveEmployers: boolean;
+  emailNotificationsEnabled: boolean;
+}
+
+export interface AdminDashboardStats {
+  students: { total: number; newLast7Days: number };
+  employers: {
+    total: number;
+    pending: number;
+    approved: number;
+    rejected: number;
+    suspended: number;
+    newLast7Days: number;
+  };
+  internships: { total: number; draft: number; published: number; closed: number; archived: number };
+  applications: { total: number };
+  internshipRequests: { total: number };
+  employerRegistrationOpen: boolean;
+}
+
+export interface EmployerDashboardStats {
+  internships: { total: number; draft: number; published: number; closed: number; archived: number };
+  applications: { total: number; pendingReview: number };
+  verificationStatus: EmployerVerificationStatus;
+}
+
+export interface StudentDashboardStats {
+  applications: {
+    total: number;
+    applied: number;
+    shortlisted: number;
+    interviewing: number;
+    offered: number;
+    rejected: number;
+    withdrawn: number;
+  };
 }
 
 export interface InternshipRequest {

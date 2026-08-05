@@ -15,11 +15,17 @@ import {
   Table,
 } from '@sequelize/core/decorators-legacy';
 import { Employer } from './employer.model.js';
+import { INTERNSHIP_CATEGORIES, type InternshipCategory } from '../../common/constants/categories.js';
 
 export type InternshipMode = 'remote' | 'onsite' | 'hybrid';
 export type InternshipStatus = 'draft' | 'published' | 'closed' | 'archived';
+export type EmploymentType = 'full-time' | 'part-time';
+export type ScheduleType = 'flexible' | 'fixed';
 
-@Table({ tableName: 'internships' })
+@Table({
+  tableName: 'internships',
+  indexes: [{ fields: ['status', 'category', 'mode'] }],
+})
 export class Internship extends Model<
   InferAttributes<Internship>,
   InferCreationAttributes<Internship>
@@ -48,13 +54,18 @@ export class Internship extends Model<
   @Default([])
   declare skillTags: CreationOptional<string[]>;
 
-  @Attribute(DataTypes.STRING)
+  @Attribute(DataTypes.ENUM(...INTERNSHIP_CATEGORIES))
   @NotNull
-  declare domain: string;
+  declare category: InternshipCategory;
 
   @Attribute(DataTypes.ENUM('remote', 'onsite', 'hybrid'))
   @NotNull
   declare mode: InternshipMode;
+
+  @Attribute(DataTypes.ENUM('full-time', 'part-time'))
+  @NotNull
+  @Default('full-time')
+  declare employmentType: CreationOptional<EmploymentType>;
 
   @Attribute(DataTypes.STRING)
   declare location: string | null;
@@ -64,10 +75,32 @@ export class Internship extends Model<
   declare durationWeeks: number;
 
   @Attribute(DataTypes.INTEGER)
+  @NotNull
+  @Default(5)
+  declare workingDays: CreationOptional<number>;
+
+  @Attribute(DataTypes.ENUM('flexible', 'fixed'))
+  @NotNull
+  @Default('flexible')
+  declare scheduleType: CreationOptional<ScheduleType>;
+
+  @Attribute(DataTypes.INTEGER)
   declare stipendMin: number | null;
 
   @Attribute(DataTypes.INTEGER)
   declare stipendMax: number | null;
+
+  @Attribute(DataTypes.JSONB)
+  @Default([])
+  declare responsibilities: CreationOptional<string[]>;
+
+  @Attribute(DataTypes.JSONB)
+  @Default([])
+  declare perks: CreationOptional<string[]>;
+
+  @Attribute(DataTypes.JSONB)
+  @Default([])
+  declare eligibility: CreationOptional<string[]>;
 
   @Attribute(DataTypes.INTEGER)
   @NotNull

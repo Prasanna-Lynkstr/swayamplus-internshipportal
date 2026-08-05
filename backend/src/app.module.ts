@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
+import { envValidationSchema } from './config/env.validation.js';
 import { DatabaseModule } from './database/database.module.js';
 import { StorageModule } from './modules/storage/storage.module.js';
 import { AuthModule } from './modules/auth/auth.module.js';
@@ -11,10 +12,15 @@ import { InternshipsModule } from './modules/internships/internships.module.js';
 import { ApplicationsModule } from './modules/applications/applications.module.js';
 import { InternshipRequestsModule } from './modules/internship-requests/internship-requests.module.js';
 import { NotificationsModule } from './modules/notifications/notifications.module.js';
+import { HealthModule } from './modules/health/health.module.js';
 
 @Module({
   imports: [
-    ConfigModule.forRoot({ isGlobal: true }),
+    ConfigModule.forRoot({
+      isGlobal: true,
+      validationSchema: envValidationSchema,
+      validationOptions: { abortEarly: false },
+    }),
     DatabaseModule,
     StorageModule,
     PlatformSettingsModule,
@@ -26,6 +32,7 @@ import { NotificationsModule } from './modules/notifications/notifications.modul
     InternshipsModule,
     ApplicationsModule,
     InternshipRequestsModule,
+    HealthModule,
   ],
 })
 export class AppModule {}

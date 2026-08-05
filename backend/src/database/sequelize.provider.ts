@@ -19,6 +19,12 @@ export const sequelizeProvider: Provider = {
       password: config.get<string>('DB_PASSWORD', 'postgres'),
       host: config.get<string>('DB_HOST', 'localhost'),
       port: config.get<number>('DB_PORT', 5432),
+      pool: {
+        max: config.get<number>('DB_POOL_MAX', 10),
+        min: config.get<number>('DB_POOL_MIN', 0),
+        idle: config.get<number>('DB_POOL_IDLE_MS', 10000),
+        acquire: config.get<number>('DB_POOL_ACQUIRE_MS', 30000),
+      },
     });
 
     sequelize.addModels([...MODELS]);

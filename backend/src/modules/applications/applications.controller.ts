@@ -1,8 +1,9 @@
-import { Body, Controller, Get, Param, ParseIntPipe, Patch, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, ParseIntPipe, Patch, Post, Query, UseGuards } from '@nestjs/common';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard.js';
 import { RolesGuard } from '../../common/guards/roles.guard.js';
 import { Roles } from '../../common/decorators/roles.decorator.js';
 import { CurrentUser, type AuthenticatedUser } from '../../common/decorators/current-user.decorator.js';
+import { PaginationQueryDto } from '../../common/dto/pagination-query.dto.js';
 import { ApplicationsService } from './applications.service.js';
 import { ApplyDto } from './dto/apply.dto.js';
 import { UpdateApplicationStatusDto } from './dto/update-application-status.dto.js';
@@ -23,9 +24,18 @@ export class ApplicationsController {
   }
 
   @Roles('student')
+  @Get('internships/:id/my-application')
+  findMyApplication(
+    @Param('id', ParseIntPipe) internshipId: number,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.applicationsService.findMyApplicationForInternship(user.sub, internshipId);
+  }
+
+  @Roles('student')
   @Get('applications/me')
-  findMine(@CurrentUser() user: AuthenticatedUser) {
-    return this.applicationsService.findMine(user.sub);
+  findMine(@CurrentUser() user: AuthenticatedUser, @Query() query: PaginationQueryDto) {
+    return this.applicationsService.findMine(user.sub, query);
   }
 
   @Roles('student')
@@ -39,8 +49,9 @@ export class ApplicationsController {
   findForInternship(
     @Param('id', ParseIntPipe) internshipId: number,
     @CurrentUser() user: AuthenticatedUser,
+    @Query() query: PaginationQueryDto,
   ) {
-    return this.applicationsService.findForInternship(internshipId, user.sub);
+    return this.applicationsService.findForInternship(internshipId, user.sub, query);
   }
 
   @Roles('employer')

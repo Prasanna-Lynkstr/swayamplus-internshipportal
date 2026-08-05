@@ -10,10 +10,6 @@ import {
 } from '../../database/database.constants.js';
 import { Employer, OtpCode, Student, User } from '../../database/models/index.js';
 
-const OTP_TTL_MINUTES = 10;
-const OTP_REQUEST_LIMIT = 5;
-const OTP_VERIFY_ATTEMPT_LIMIT = 5;
-
 function generateOtp(): string {
   return String(Math.floor(100000 + Math.random() * 900000));
 }
@@ -42,12 +38,25 @@ export class AuthService {
     return this.configService.get<string>('NODE_ENV') !== 'production';
   }
 
+  // Config-driven rather than hardcoded — see env.validation.ts for the
+  // schema and .env.example for documented defaults.
+  private get otpTtlMinutes(): number {
+    return this.configService.get<number>('OTP_TTL_MINUTES', 10);
+  }
+  private get otpRequestLimit(): number {
+    return this.configService.get<number>('OTP_REQUEST_LIMIT', 5);
+  }
+  private get otpVerifyAttemptLimit(): number {
+    return this.configService.get<number>('OTP_VERIFY_ATTEMPT_LIMIT', 5);
+  }
+
   async requestOtp(identifier: string, role: 'student' | 'employer') {
-    const tenMinutesAgo = new Date(Date.now() - OTP_TTL_MINUTES * 60 * 1000);
+    const ttlMinutes = this.otpTtlMinutes;
+    const windowStart = new Date(Date.now() - ttlMinutes * 60 * 1000);
     const recentCount = await this.otpCodeModel.count({
-      where: { identifier, role, createdAt: { [Op.gte]: tenMinutesAgo } },
+      where: { identifier, role, createdAt: { [Op.gte]: windowStart } },
     });
-    if (recentCount >= OTP_REQUEST_LIMIT) {
+    if (recentCount >= this.otpRequestLimit) {
       throw new HttpException(
         'Too many OTP requests. Please try again later.',
         HttpStatus.TOO_MANY_REQUESTS,
@@ -56,13 +65,13 @@ export class AuthService {
 
     const otp = generateOtp();
     const codeHash = await Bun.password.hash(otp);
-    const expiresAt = new Date(Date.now() + OTP_TTL_MINUTES * 60 * 1000);
+    const expiresAt = new Date(Date.now() + ttlMinutes * 60 * 1000);
 
     await this.otpCodeModel.create({ identifier, role, codeHash, expiresAt, attempts: 0 });
 
     // TODO: replace with a real transactional email/SMS provider (SES, SMTP, etc.) before
     // this runs anywhere but a local/dev environment.
-    this.logger.log(`[DEV OTP] ${role} ${identifier} -> ${otp} (expires in ${OTP_TTL_MINUTES}m)`);
+    this.logger.log(`[DEV OTP] ${role} ${identifier} -> ${otp} (expires in ${ttlMinutes}m)`);
 
     return {
       message: 'OTP sent.',
@@ -79,7 +88,7 @@ export class AuthService {
     if (!record) {
       throw new UnauthorizedException('Invalid or expired OTP.');
     }
-    if (record.attempts >= OTP_VERIFY_ATTEMPT_LIMIT) {
+    if (record.attempts >= this.otpVerifyAttemptLimit) {
       throw new UnauthorizedException('Too many incorrect attempts for this OTP.');
     }
     if (record.expiresAt.getTime() < Date.now()) {

@@ -74,8 +74,20 @@ export function NavPill() {
               user.role === 'employer'
                 ? '/employer/dashboard'
                 : user.role === 'admin'
-                  ? '/admin/employers'
-                  : '/applications'
+                  ? '/admin/dashboard'
+                  : '/student/dashboard'
+            }
+            className="rounded-full px-4 py-2 text-sm font-semibold transition-colors hover:bg-white/15"
+          >
+            {user.role === 'admin' ? 'Admin' : 'Dashboard'}
+          </Link>
+          <Link
+            href={
+              user.role === 'employer'
+                ? '/employer/dashboard'
+                : user.role === 'admin'
+                  ? '/admin/dashboard'
+                  : '/student/dashboard'
             }
             className="flex h-9 w-9 items-center justify-center rounded-full bg-sp-orange text-sm font-bold text-white"
             title={user.identifier}

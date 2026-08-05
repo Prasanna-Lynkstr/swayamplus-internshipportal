@@ -1,7 +1,9 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
+  HttpCode,
   Param,
   ParseIntPipe,
   Patch,
@@ -11,9 +13,11 @@ import {
 } from '@nestjs/common';
 import { Public } from '../../common/decorators/public.decorator.js';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard.js';
+import { OptionalJwtAuthGuard } from '../../common/guards/optional-jwt-auth.guard.js';
 import { RolesGuard } from '../../common/guards/roles.guard.js';
 import { Roles } from '../../common/decorators/roles.decorator.js';
 import { CurrentUser, type AuthenticatedUser } from '../../common/decorators/current-user.decorator.js';
+import { PaginationQueryDto } from '../../common/dto/pagination-query.dto.js';
 import { InternshipsService } from './internships.service.js';
 import { CreateInternshipDto } from './dto/create-internship.dto.js';
 import { UpdateInternshipDto } from './dto/update-internship.dto.js';
@@ -39,14 +43,26 @@ export class InternshipsController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('employer')
   @Get('mine')
-  findMine(@CurrentUser() user: AuthenticatedUser) {
-    return this.internshipsService.findMine(user.sub);
+  findMine(@CurrentUser() user: AuthenticatedUser, @Query() query: PaginationQueryDto) {
+    return this.internshipsService.findMine(user.sub, query);
   }
 
   @Public()
+  @Get('categories')
+  getCategoryCounts() {
+    return this.internshipsService.getCategoryCounts();
+  }
+
+  // Not @Public(): this route is publicly reachable but auth-aware — a
+  // draft/closed/archived internship should only resolve for its owning
+  // employer or an admin (see InternshipsService.findOne for the gate).
+  @UseGuards(OptionalJwtAuthGuard)
   @Get(':id')
-  findOne(@Param('id', ParseIntPipe) id: number) {
-    return this.internshipsService.findOne(id);
+  findOne(
+    @Param('id', ParseIntPipe) id: number,
+    @CurrentUser() user: AuthenticatedUser | null,
+  ) {
+    return this.internshipsService.findOne(id, user);
   }
 
   @UseGuards(JwtAuthGuard, RolesGuard)
@@ -72,5 +88,13 @@ export class InternshipsController {
   @Patch(':id/close')
   close(@Param('id', ParseIntPipe) id: number, @CurrentUser() user: AuthenticatedUser) {
     return this.internshipsService.close(id, user.sub);
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('employer')
+  @Delete(':id')
+  @HttpCode(204)
+  remove(@Param('id', ParseIntPipe) id: number, @CurrentUser() user: AuthenticatedUser) {
+    return this.internshipsService.remove(id, user.sub);
   }
 }

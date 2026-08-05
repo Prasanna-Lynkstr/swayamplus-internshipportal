@@ -10,6 +10,8 @@ import {
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
+import { createMimeTypeFilter, RESUME_MIME_TYPES } from '../../common/utils/file-filter.util.js';
+import { getMissingStudentProfileFields } from '../../common/utils/student-profile.util.js';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard.js';
 import { RolesGuard } from '../../common/guards/roles.guard.js';
 import { Roles } from '../../common/decorators/roles.decorator.js';
@@ -24,8 +26,14 @@ export class StudentsController {
   constructor(private readonly studentsService: StudentsService) {}
 
   @Get('me')
-  getMe(@CurrentUser() user: AuthenticatedUser) {
-    return this.studentsService.getByUserId(user.sub);
+  async getMe(@CurrentUser() user: AuthenticatedUser) {
+    const student = await this.studentsService.getByUserId(user.sub);
+    const missingFields = getMissingStudentProfileFields(student);
+    return {
+      ...student.get({ plain: true }),
+      profileComplete: missingFields.length === 0,
+      missingFields,
+    };
   }
 
   @Patch('me')
@@ -33,11 +41,17 @@ export class StudentsController {
     return this.studentsService.updateByUserId(user.sub, dto);
   }
 
+  @Get('me/dashboard')
+  getMyDashboard(@CurrentUser() user: AuthenticatedUser) {
+    return this.studentsService.getDashboardStats(user.sub);
+  }
+
   @Post('me/resume')
   @UseInterceptors(
     FileInterceptor('file', {
       storage: memoryStorage(),
-      limits: { fileSize: 10 * 1024 * 1024 },
+      limits: { fileSize: Number(process.env.MAX_UPLOAD_SIZE_MB ?? 10) * 1024 * 1024 },
+      fileFilter: createMimeTypeFilter(RESUME_MIME_TYPES),
     }),
   )
   uploadResume(@CurrentUser() user: AuthenticatedUser, @UploadedFile() file: Express.Multer.File) {

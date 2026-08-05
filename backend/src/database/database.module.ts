@@ -1,6 +1,7 @@
 import { Global, Module } from '@nestjs/common';
 import type { Provider } from '@nestjs/common';
 import { sequelizeProvider } from './sequelize.provider.js';
+import { DatabaseShutdownService } from './database-shutdown.service.js';
 import {
   EMPLOYER_MODEL,
   INTERNSHIP_APPLICATION_MODEL,
@@ -38,6 +39,7 @@ function modelProvider(token: string, model: unknown): Provider {
 @Module({
   providers: [
     sequelizeProvider,
+    DatabaseShutdownService,
     modelProvider(USER_MODEL, User),
     modelProvider(OTP_CODE_MODEL, OtpCode),
     modelProvider(STUDENT_MODEL, Student),

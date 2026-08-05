@@ -13,7 +13,12 @@ export class PlatformSettingsService {
   async getSettings(): Promise<PlatformSetting> {
     const [settings] = await this.settingModel.findOrCreate({
       where: { id: SINGLETON_ID },
-      defaults: { id: SINGLETON_ID, employerRegistrationOpen: true, autoApproveEmployers: false },
+      defaults: {
+        id: SINGLETON_ID,
+        employerRegistrationOpen: true,
+        autoApproveEmployers: false,
+        emailNotificationsEnabled: true,
+      },
     });
     return settings;
   }
@@ -21,6 +26,7 @@ export class PlatformSettingsService {
   async updateSettings(partial: {
     employerRegistrationOpen?: boolean;
     autoApproveEmployers?: boolean;
+    emailNotificationsEnabled?: boolean;
   }): Promise<PlatformSetting> {
     const settings = await this.getSettings();
     settings.set(partial);

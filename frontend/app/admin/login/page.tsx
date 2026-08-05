@@ -27,7 +27,7 @@ export default function AdminLoginPage() {
         body: { email, password },
       });
       login(res.accessToken, res.user);
-      router.push('/admin/employers');
+      router.push('/admin/dashboard');
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Invalid credentials.');
     } finally {

@@ -5,6 +5,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import {
   EMPLOYER_MODEL,
   INTERNSHIP_APPLICATION_MODEL,
@@ -20,6 +21,9 @@ import {
   User,
 } from '../../database/models/index.js';
 import { NotificationsService } from '../notifications/notifications.service.js';
+import type { PaginationQueryDto } from '../../common/dto/pagination-query.dto.js';
+import { resolvePagination, toPaginatedResult } from '../../common/utils/pagination.util.js';
+import { isStudentProfileComplete } from '../../common/utils/student-profile.util.js';
 import { ApplyDto } from './dto/apply.dto.js';
 import { UpdateApplicationStatusDto } from './dto/update-application-status.dto.js';
 
@@ -33,6 +37,7 @@ export class ApplicationsService {
     @Inject(EMPLOYER_MODEL) private readonly employerModel: typeof Employer,
     @Inject(USER_MODEL) private readonly userModel: typeof User,
     private readonly notificationsService: NotificationsService,
+    private readonly configService: ConfigService,
   ) {}
 
   private async getStudent(userId: number): Promise<Student> {
@@ -53,6 +58,12 @@ export class ApplicationsService {
 
   async apply(userId: number, internshipId: number, dto: ApplyDto): Promise<InternshipApplication> {
     const student = await this.getStudent(userId);
+    if (!isStudentProfileComplete(student)) {
+      throw new ForbiddenException(
+        'Please complete your profile (name, phone, college, course, graduation year, city, resume, and at least one skill) before applying.',
+      );
+    }
+
     const internship = await this.internshipModel.findByPk(internshipId);
     if (!internship || internship.status !== 'published') {
       throw new NotFoundException('Internship not found or not accepting applications.');
@@ -73,13 +84,28 @@ export class ApplicationsService {
     });
   }
 
-  async findMine(userId: number) {
+  async findMyApplicationForInternship(
+    userId: number,
+    internshipId: number,
+  ): Promise<InternshipApplication | null> {
+    const student = await this.studentModel.findOne({ where: { userId } });
+    if (!student) return null;
+    return this.applicationModel.findOne({ where: { internshipId, studentId: student.id } });
+  }
+
+  async findMine(userId: number, query: PaginationQueryDto) {
     const student = await this.getStudent(userId);
-    return this.applicationModel.findAll({
+    const { page, pageSize, offset } = resolvePagination(this.configService, query);
+
+    const { rows, count } = await this.applicationModel.findAndCountAll({
       where: { studentId: student.id },
       include: [{ model: this.internshipModel, as: 'internship' }],
       order: [['createdAt', 'DESC']],
+      limit: pageSize,
+      offset,
     });
+
+    return toPaginatedResult(rows, count, page, pageSize);
   }
 
   async withdraw(applicationId: number, userId: number): Promise<InternshipApplication> {
@@ -93,17 +119,24 @@ export class ApplicationsService {
     return application;
   }
 
-  async findForInternship(internshipId: number, userId: number) {
+  async findForInternship(internshipId: number, userId: number, query: PaginationQueryDto) {
     const employer = await this.getEmployer(userId);
     const internship = await this.internshipModel.findByPk(internshipId);
     if (!internship || internship.employerId !== employer.id) {
       throw new NotFoundException('Internship not found.');
     }
-    return this.applicationModel.findAll({
+
+    const { page, pageSize, offset } = resolvePagination(this.configService, query);
+
+    const { rows, count } = await this.applicationModel.findAndCountAll({
       where: { internshipId },
       include: [{ model: this.studentModel, as: 'student' }],
       order: [['createdAt', 'DESC']],
+      limit: pageSize,
+      offset,
     });
+
+    return toPaginatedResult(rows, count, page, pageSize);
   }
 
   async updateStatus(
