@@ -1,0 +1,89 @@
+@import 'tailwindcss';
+
+:root {
+  --sp-orange: #fa6e1d;
+  --sp-orange-ink: #812000;
+  --sp-orange-soft: #ffe9d6;
+
+  --sp-blue: #1c45c2;
+
+  --sp-green-from: #266836;
+  --sp-green-to: #008801;
+
+  --sp-navy: #0d111b;
+  --sp-ink-2: #3e424c;
+  --sp-ink-3: #6e7279;
+
+  --sp-bg: #fdfaf4;
+  --sp-bg-elev: #ffffff;
+  --sp-bg-sunken: #f6f1e9;
+
+  --sp-good: #299236;
+  --sp-good-soft: #cff8cf;
+  --sp-danger: #d73337;
+  --sp-danger-soft: #ffe0dc;
+
+  --sp-pastel-yellow: #fff7e0;
+  --sp-pastel-peach: #ffe9d6;
+  --sp-pastel-lavender: #efe4ff;
+  --sp-pastel-mint: #e3ffd1;
+
+  --sp-radius-sm: 12px;
+  --sp-radius-md: 16px;
+  --sp-radius-lg: 24px;
+  --sp-radius-xl: 32px;
+  --sp-radius-full: 9999px;
+}
+
+@theme inline {
+  --color-sp-orange: var(--sp-orange);
+  --color-sp-orange-ink: var(--sp-orange-ink);
+  --color-sp-orange-soft: var(--sp-orange-soft);
+  --color-sp-blue: var(--sp-blue);
+  --color-sp-green-from: var(--sp-green-from);
+  --color-sp-green-to: var(--sp-green-to);
+  --color-sp-navy: var(--sp-navy);
+  --color-sp-ink-2: var(--sp-ink-2);
+  --color-sp-ink-3: var(--sp-ink-3);
+  --color-sp-bg: var(--sp-bg);
+  --color-sp-bg-elev: var(--sp-bg-elev);
+  --color-sp-bg-sunken: var(--sp-bg-sunken);
+  --color-sp-good: var(--sp-good);
+  --color-sp-good-soft: var(--sp-good-soft);
+  --color-sp-danger: var(--sp-danger);
+  --color-sp-danger-soft: var(--sp-danger-soft);
+  --color-sp-pastel-yellow: var(--sp-pastel-yellow);
+  --color-sp-pastel-peach: var(--sp-pastel-peach);
+  --color-sp-pastel-lavender: var(--sp-pastel-lavender);
+  --color-sp-pastel-mint: var(--sp-pastel-mint);
+
+  --radius-sp-sm: var(--sp-radius-sm);
+  --radius-sp-md: var(--sp-radius-md);
+  --radius-sp-lg: var(--sp-radius-lg);
+  --radius-sp-xl: var(--sp-radius-xl);
+
+  --font-sans: var(--font-dm-sans), system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-mono: var(--font-jetbrains-mono), ui-monospace, Menlo, monospace;
+}
+
+body {
+  background: linear-gradient(135deg, #fffdf8 0%, #fdfaf4 45%, #fdf0e4 100%);
+  color: var(--sp-navy);
+  font-family: var(--font-sans);
+  min-height: 100vh;
+}
+
+/* TODO: replace with the official MoE / SWAYAM Plus / IIT Madras logo assets once available. */
+.placeholder-logo {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  color: var(--sp-ink-3);
+  background: var(--sp-bg-sunken);
+  border: 1px dashed var(--sp-ink-3);
+}
+
+.sp-nav-pill {
+  background: linear-gradient(90deg, var(--sp-green-from) 0%, var(--sp-green-to) 100%);
+}

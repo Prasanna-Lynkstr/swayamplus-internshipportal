@@ -1,0 +1,5 @@
+node_modules/
+.env
+# Created on demand by StorageService (local driver) — nothing here needs to be tracked.
+uploads/
+*.log

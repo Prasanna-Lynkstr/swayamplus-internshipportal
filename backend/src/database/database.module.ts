@@ -1,0 +1,62 @@
+import { Global, Module } from '@nestjs/common';
+import type { Provider } from '@nestjs/common';
+import { sequelizeProvider } from './sequelize.provider.js';
+import {
+  EMPLOYER_MODEL,
+  INTERNSHIP_APPLICATION_MODEL,
+  INTERNSHIP_MODEL,
+  INTERNSHIP_REQUEST_MODEL,
+  OTP_CODE_MODEL,
+  PLATFORM_SETTING_MODEL,
+  SEQUELIZE,
+  STUDENT_MODEL,
+  USER_MODEL,
+} from './database.constants.js';
+import {
+  Employer,
+  Internship,
+  InternshipApplication,
+  InternshipRequest,
+  OtpCode,
+  PlatformSetting,
+  Student,
+  User,
+} from './models/index.js';
+
+// Each model provider depends on SEQUELIZE, which forces Nest to finish connecting +
+// `addModels`/`sync` before any model class is handed to a service — the model class
+// itself is returned as-is since decorators bind its static query methods in place.
+function modelProvider(token: string, model: unknown): Provider {
+  return {
+    provide: token,
+    inject: [SEQUELIZE],
+    useFactory: () => model,
+  };
+}
+
+@Global()
+@Module({
+  providers: [
+    sequelizeProvider,
+    modelProvider(USER_MODEL, User),
+    modelProvider(OTP_CODE_MODEL, OtpCode),
+    modelProvider(STUDENT_MODEL, Student),
+    modelProvider(EMPLOYER_MODEL, Employer),
+    modelProvider(PLATFORM_SETTING_MODEL, PlatformSetting),
+    modelProvider(INTERNSHIP_MODEL, Internship),
+    modelProvider(INTERNSHIP_APPLICATION_MODEL, InternshipApplication),
+    modelProvider(INTERNSHIP_REQUEST_MODEL, InternshipRequest),
+  ],
+  exports: [
+    SEQUELIZE,
+    USER_MODEL,
+    OTP_CODE_MODEL,
+    STUDENT_MODEL,
+    EMPLOYER_MODEL,
+    PLATFORM_SETTING_MODEL,
+    INTERNSHIP_MODEL,
+    INTERNSHIP_APPLICATION_MODEL,
+    INTERNSHIP_REQUEST_MODEL,
+  ],
+})
+export class DatabaseModule {}
