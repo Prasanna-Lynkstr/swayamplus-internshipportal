@@ -58,6 +58,14 @@ export class InternshipApplication extends Model<
   @Attribute(DataTypes.TEXT)
   declare coverNote: string | null;
 
+  // Student's self-rating against the employer's checklist at apply time —
+  // e.g. [{ item: 'Comfortable with React', met: true }, ...]. Snapshotted
+  // here rather than re-derived later, since Internship.checklistItems can
+  // change after this application was submitted.
+  @Attribute(DataTypes.JSONB)
+  @Default([])
+  declare checklistResponses: CreationOptional<Array<{ item: string; met: boolean }>>;
+
   @Attribute(DataTypes.ENUM('applied', 'shortlisted', 'interviewing', 'offered', 'rejected', 'withdrawn'))
   @NotNull
   @Default('applied')

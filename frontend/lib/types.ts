@@ -25,25 +25,42 @@ export interface Student {
   missingFields?: string[];
 }
 
-export type EmployerVerificationStatus = 'pending' | 'approved' | 'rejected' | 'suspended';
+export type EmployerVerificationStatus = 'pending' | 'approved' | 'rejected';
 
 export interface Employer {
   id: number;
   userId: number;
   organizationName: string | null;
+  reasonForEoi: string | null;
   cin: string | null;
-  gst: string | null;
+  certificateOfIncorporationUrl: string | null;
+  headcount: number | null;
+  linkedinBusinessPage: string | null;
+  internshipTypesExpected: string[];
   website: string | null;
   logoUrl: string | null;
   hqCity: string | null;
   industryTags: string[];
-  verificationDocumentUrl: string | null;
   verificationStatus: EmployerVerificationStatus;
   user?: { identifier: string };
   /** Only present on the GET /employers/me response. */
   profileComplete?: boolean;
   /** Only present on the GET /employers/me response. */
   missingFields?: string[];
+}
+
+export type PaidPreference = 'paid' | 'unpaid' | 'either';
+
+export interface StudentPreferences {
+  id: number;
+  studentId: number;
+  preferredCategories: string[];
+  preferredLocations: string[];
+  preferredModes: string[];
+  preferredEmploymentTypes: string[];
+  paidPreference: PaidPreference;
+  rolesOfInterest: string[];
+  availability: string | null;
 }
 
 export type InternshipMode = 'remote' | 'onsite' | 'hybrid';
@@ -69,6 +86,7 @@ export interface Internship {
   responsibilities: string[];
   perks: string[];
   eligibility: string[];
+  checklistItems: string[];
   openings: number;
   applicationDeadline: string;
   status: InternshipStatus;
@@ -86,15 +104,30 @@ export type ApplicationStatus =
   | 'rejected'
   | 'withdrawn';
 
+export interface ChecklistResponse {
+  item: string;
+  met: boolean;
+}
+
 export interface InternshipApplication {
   id: number;
   internshipId: number;
   studentId: number;
   coverNote: string | null;
+  checklistResponses: ChecklistResponse[];
   status: ApplicationStatus;
   createdAt: string;
   internship?: Internship;
   student?: Student;
+}
+
+export interface ApplicationNote {
+  id: number;
+  applicationId: number;
+  authorUserId: number;
+  note: string;
+  createdAt: string;
+  author?: { identifier: string; role: UserRole };
 }
 
 export interface PaginatedResult<T> {
@@ -125,7 +158,6 @@ export interface AdminDashboardStats {
     pending: number;
     approved: number;
     rejected: number;
-    suspended: number;
     newLast7Days: number;
   };
   internships: { total: number; draft: number; published: number; closed: number; archived: number };
@@ -150,6 +182,16 @@ export interface StudentDashboardStats {
     rejected: number;
     withdrawn: number;
   };
+}
+
+export interface InterestRegistration {
+  id: number;
+  fullName: string;
+  email: string;
+  phone: string | null;
+  areaOfInterest: string | null;
+  notes: string | null;
+  createdAt: string;
 }
 
 export interface InternshipRequest {

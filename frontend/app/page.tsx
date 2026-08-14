@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { LinkButton } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
+import { RegisterInterestForm } from '@/components/interest/RegisterInterestForm';
 import { apiFetch } from '@/lib/api';
 import { getServerAuthUser } from '@/lib/serverAuth';
 import type { Internship, PaginatedInternships } from '@/lib/types';
@@ -134,6 +135,12 @@ export default async function HomePage({ searchParams }: Props) {
           </div>
         ))}
       </section>
+
+      {!user && (
+        <section className="mx-auto w-full max-w-xl">
+          <RegisterInterestForm />
+        </section>
+      )}
     </div>
   );
 }

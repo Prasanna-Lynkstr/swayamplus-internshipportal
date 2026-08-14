@@ -38,8 +38,8 @@ export async function Footer() {
     ],
   };
 
-  const institutionsColumn = {
-    title: 'For Institutions',
+  const employersColumn = {
+    title: 'For Employers',
     links: [
       {
         href: isEmployer ? '/employer/dashboard' : '/register/employer',
@@ -49,7 +49,7 @@ export async function Footer() {
     ],
   };
 
-  const columns = [exploreColumn, institutionsColumn, ...STATIC_COLUMNS];
+  const columns = [exploreColumn, employersColumn, ...STATIC_COLUMNS];
 
   return (
     <footer className="mt-16 border-t border-black/5 bg-white">

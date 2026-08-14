@@ -1,13 +1,7 @@
-import {
-  ArgumentsHost,
-  Catch,
-  ExceptionFilter,
-  HttpException,
-  HttpStatus,
-  Logger,
-} from '@nestjs/common';
+import { ArgumentsHost, Catch, ExceptionFilter, HttpException, HttpStatus } from '@nestjs/common';
 import type { Response } from 'express';
 import { randomUUID } from 'node:crypto';
+import type { AppLogger } from '../logging/app-logger.types.js';
 
 /**
  * Consistent { statusCode, message, errorId } shape across the whole API,
@@ -19,7 +13,7 @@ import { randomUUID } from 'node:crypto';
  */
 @Catch()
 export class AllExceptionsFilter implements ExceptionFilter {
-  private readonly logger = new Logger('ExceptionFilter');
+  constructor(private readonly logger: AppLogger) {}
 
   catch(exception: unknown, host: ArgumentsHost): void {
     const ctx = host.switchToHttp();
@@ -33,7 +27,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
         typeof body === 'string' ? body : ((body as Record<string, unknown>).message ?? body);
 
       if (status >= HttpStatus.INTERNAL_SERVER_ERROR) {
-        this.logger.error(`[${errorId}] ${exception.message}`, exception.stack);
+        this.logger.error(`[${errorId}] ${exception.message}`, exception.stack, 'ExceptionFilter');
       }
 
       response.status(status).json({ statusCode: status, message, errorId });
@@ -43,6 +37,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
     this.logger.error(
       `[${errorId}] Unhandled exception`,
       exception instanceof Error ? exception.stack : String(exception),
+      'ExceptionFilter',
     );
     response.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
       statusCode: HttpStatus.INTERNAL_SERVER_ERROR,

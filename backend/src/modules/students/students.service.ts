@@ -1,16 +1,22 @@
 import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { col, fn } from '@sequelize/core';
-import { INTERNSHIP_APPLICATION_MODEL, STUDENT_MODEL } from '../../database/database.constants.js';
-import { InternshipApplication, Student } from '../../database/models/index.js';
+import {
+  INTERNSHIP_APPLICATION_MODEL,
+  STUDENT_MODEL,
+  STUDENT_PREFERENCE_MODEL,
+} from '../../database/database.constants.js';
+import { InternshipApplication, Student, StudentPreference } from '../../database/models/index.js';
 import type { ApplicationStatus } from '../../database/models/index.js';
 import { STORAGE_SERVICE } from '../storage/storage.constants.js';
 import type { StorageService, UploadableFile } from '../storage/storage.types.js';
 import { UpdateStudentDto } from './dto/update-student.dto.js';
+import { UpdateStudentPreferencesDto } from './dto/update-student-preferences.dto.js';
 
 @Injectable()
 export class StudentsService {
   constructor(
     @Inject(STUDENT_MODEL) private readonly studentModel: typeof Student,
+    @Inject(STUDENT_PREFERENCE_MODEL) private readonly studentPreferenceModel: typeof StudentPreference,
     @Inject(INTERNSHIP_APPLICATION_MODEL)
     private readonly applicationModel: typeof InternshipApplication,
     @Inject(STORAGE_SERVICE) private readonly storageService: StorageService,
@@ -29,6 +35,24 @@ export class StudentsService {
     student.set(dto);
     await student.save();
     return student;
+  }
+
+  async getPreferences(userId: number): Promise<StudentPreference> {
+    const student = await this.getByUserId(userId);
+    const [preferences] = await this.studentPreferenceModel.findOrCreate({
+      where: { studentId: student.id },
+    });
+    return preferences;
+  }
+
+  async updatePreferences(
+    userId: number,
+    dto: UpdateStudentPreferencesDto,
+  ): Promise<StudentPreference> {
+    const preferences = await this.getPreferences(userId);
+    preferences.set(dto);
+    await preferences.save();
+    return preferences;
   }
 
   async saveResume(userId: number, file: UploadableFile): Promise<Student> {

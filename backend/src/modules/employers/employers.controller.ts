@@ -70,7 +70,7 @@ export class EmployersController {
 
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('employer')
-  @Post('me/verification-document')
+  @Post('me/certificate-of-incorporation')
   @UseInterceptors(
     FileInterceptor('file', {
       storage: memoryStorage(),
@@ -81,11 +81,11 @@ export class EmployersController {
       fileFilter: createMimeTypeFilter(VERIFICATION_DOCUMENT_MIME_TYPES),
     }),
   )
-  async uploadVerificationDocument(
+  async uploadCertificateOfIncorporation(
     @CurrentUser() user: AuthenticatedUser,
     @UploadedFile() file: Express.Multer.File,
   ) {
-    return this.employersService.saveVerificationDocument(user.sub, {
+    return this.employersService.saveCertificateOfIncorporation(user.sub, {
       buffer: file.buffer,
       originalName: file.originalname,
       mimeType: file.mimetype,

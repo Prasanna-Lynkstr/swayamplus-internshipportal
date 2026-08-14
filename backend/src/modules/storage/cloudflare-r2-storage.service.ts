@@ -1,19 +1,19 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import * as path from 'node:path';
 import type { StorageService, UploadableFile } from './storage.types.js';
+import type { AppLogger } from '../../common/logging/app-logger.types.js';
 
 // Cloudflare R2 is S3-API-compatible, so the AWS SDK's S3Client works unmodified
 // against R2's endpoint — no Cloudflare-specific SDK needed.
 @Injectable()
 export class CloudflareR2StorageService implements StorageService {
-  private readonly logger = new Logger(CloudflareR2StorageService.name);
   private readonly client: S3Client;
   private readonly bucket: string;
   private readonly publicUrl: string;
 
-  constructor(config: ConfigService) {
+  constructor(config: ConfigService, private readonly logger: AppLogger) {
     const accountId = config.getOrThrow<string>('R2_ACCOUNT_ID');
     this.bucket = config.getOrThrow<string>('R2_BUCKET');
     this.publicUrl = config.getOrThrow<string>('R2_PUBLIC_URL').replace(/\/+$/, '');
@@ -27,7 +27,7 @@ export class CloudflareR2StorageService implements StorageService {
       },
     });
 
-    this.logger.log(`Using Cloudflare R2 storage (bucket: ${this.bucket})`);
+    this.logger.log(`Using Cloudflare R2 storage (bucket: ${this.bucket})`, CloudflareR2StorageService.name);
   }
 
   async save(file: UploadableFile, folder: string): Promise<string> {

@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth';
 import { apiFetch, ApiError } from '@/lib/api';
 import { resolveFileUrl } from '@/lib/files';
+import { INTERNSHIP_CATEGORIES } from '@/lib/categories';
 import { OtpFlow } from '@/components/auth/OtpFlow';
 import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
@@ -16,7 +17,6 @@ const STATUS_TONE = {
   pending: 'orange',
   approved: 'good',
   rejected: 'danger',
-  suspended: 'danger',
 } as const;
 
 export default function EmployerRegisterPage() {
@@ -26,10 +26,10 @@ export default function EmployerRegisterPage() {
   const [verified, setVerified] = useState(false);
   const [profile, setProfile] = useState<Partial<Employer>>({});
   const [tagsText, setTagsText] = useState('');
+  const [pendingFile, setPendingFile] = useState<File | null>(null);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState('');
-  const [uploadStatus, setUploadStatus] = useState<'idle' | 'uploading' | 'done' | 'error'>('idle');
   // undefined = still checking, true = complete (redirecting to dashboard),
   // false = incomplete (show the form below).
   const [profileComplete, setProfileComplete] = useState<boolean | undefined>(undefined);
@@ -47,10 +47,9 @@ export default function EmployerRegisterPage() {
     apiFetch<Employer>('/employers/me', { token })
       .then((e) => {
         if (e.profileComplete) {
-          // Already set up — landing on the profile form again on every
-          // login is pointless busywork. Send them straight to the
-          // dashboard instead, whether this was a fresh OTP verify or a
-          // returning, already-authenticated visit to this page.
+          // Already set up — landing on the EOI form again on every login is
+          // pointless busywork. Send them straight to the dashboard instead,
+          // whether this was a fresh OTP verify or a returning visit.
           setProfileComplete(true);
           router.replace('/employer/dashboard');
           return;
@@ -98,18 +97,35 @@ export default function EmployerRegisterPage() {
     return <p className="text-center text-sp-ink-3">Loading…</p>;
   }
 
-  const submitProfile = async (e: React.FormEvent) => {
+  const toggleInternshipType = (category: string) => {
+    setProfile((p) => {
+      const current = p.internshipTypesExpected ?? [];
+      const next = current.includes(category)
+        ? current.filter((c) => c !== category)
+        : [...current, category];
+      return { ...p, internshipTypesExpected: next };
+    });
+  };
+
+  // A single expression-of-interest submission: the org profile fields and
+  // the Certificate of Incorporation go up together from one button click,
+  // then the whole thing sits in `pending` for one admin decision — no
+  // separate document-upload gate to clear first.
+  const submitEoi = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
     setError('');
     try {
-      const updated = await apiFetch<Employer>('/employers/register', {
+      let updated = await apiFetch<Employer>('/employers/register', {
         method: 'POST',
         token,
         body: {
           organizationName: profile.organizationName,
+          reasonForEoi: profile.reasonForEoi,
           cin: profile.cin || undefined,
-          gst: profile.gst || undefined,
+          headcount: profile.headcount || undefined,
+          linkedinBusinessPage: profile.linkedinBusinessPage || undefined,
+          internshipTypesExpected: profile.internshipTypesExpected ?? [],
           website: profile.website || undefined,
           hqCity: profile.hqCity || undefined,
           industryTags: tagsText
@@ -118,50 +134,41 @@ export default function EmployerRegisterPage() {
             .filter(Boolean),
         },
       });
+
+      if (pendingFile) {
+        const formData = new FormData();
+        formData.append('file', pendingFile);
+        updated = await apiFetch<Employer>('/employers/me/certificate-of-incorporation', {
+          method: 'POST',
+          token,
+          body: formData,
+        });
+      }
+
       setProfile(updated);
       setSaved(true);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Could not save your organization profile.');
+      setError(err instanceof ApiError ? err.message : 'Could not submit your EOI.');
     } finally {
       setSaving(false);
-    }
-  };
-
-  const uploadDocument = async (file: File, input: HTMLInputElement) => {
-    setUploadStatus('uploading');
-    try {
-      const formData = new FormData();
-      formData.append('file', file);
-      const updated = await apiFetch<Employer>('/employers/me/verification-document', {
-        method: 'POST',
-        token,
-        body: formData,
-      });
-      setProfile(updated);
-      setUploadStatus('done');
-      // Otherwise the native file input keeps showing the just-selected
-      // filename, which then sits next to the server's randomized storage
-      // filename below — two different names for the same file reads as a
-      // mismatch/error rather than a successful upload.
-      input.value = '';
-    } catch {
-      setUploadStatus('error');
     }
   };
 
   return (
     <div className="mx-auto max-w-2xl">
       <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-2xl font-extrabold text-sp-navy">Organization profile</h1>
+        <h1 className="text-2xl font-extrabold text-sp-navy">Expression of interest</h1>
         {profile.verificationStatus && (
-          <Badge tone={STATUS_TONE[profile.verificationStatus]}>
-            {profile.verificationStatus}
-          </Badge>
+          <Badge tone={STATUS_TONE[profile.verificationStatus]}>{profile.verificationStatus}</Badge>
         )}
       </div>
+      <p className="mb-6 -mt-4 text-sm text-sp-ink-2">
+        Tell us about your organization in one go — our admin team reviews every submission and
+        approves or rejects it as a single decision.
+      </p>
 
-      <Card className="mb-6 p-6">
-        <form onSubmit={submitProfile} className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+      <Card className="p-6">
+        <form onSubmit={submitEoi} className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div className="sm:col-span-2">
             <Label htmlFor="organizationName">Organization name</Label>
             <Input
@@ -169,6 +176,18 @@ export default function EmployerRegisterPage() {
               required
               value={profile.organizationName ?? ''}
               onChange={(e) => setProfile((p) => ({ ...p, organizationName: e.target.value }))}
+            />
+          </div>
+          <div className="sm:col-span-2">
+            <Label htmlFor="reasonForEoi">Reason for expressing interest</Label>
+            <textarea
+              id="reasonForEoi"
+              required
+              rows={3}
+              value={profile.reasonForEoi ?? ''}
+              onChange={(e) => setProfile((p) => ({ ...p, reasonForEoi: e.target.value }))}
+              placeholder="What kind of internships do you want to offer, and why on SWAYAM Plus?"
+              className="w-full rounded-sp-lg border border-black/10 px-3 py-2 text-sm text-sp-navy outline-none focus:border-sp-blue"
             />
           </div>
           <div>
@@ -180,11 +199,24 @@ export default function EmployerRegisterPage() {
             />
           </div>
           <div>
-            <Label htmlFor="gst">GST</Label>
+            <Label htmlFor="headcount">Headcount</Label>
             <Input
-              id="gst"
-              value={profile.gst ?? ''}
-              onChange={(e) => setProfile((p) => ({ ...p, gst: e.target.value }))}
+              id="headcount"
+              type="number"
+              min={1}
+              value={profile.headcount ?? ''}
+              onChange={(e) =>
+                setProfile((p) => ({ ...p, headcount: e.target.value ? Number(e.target.value) : null }))
+              }
+            />
+          </div>
+          <div>
+            <Label htmlFor="linkedinBusinessPage">LinkedIn business page</Label>
+            <Input
+              id="linkedinBusinessPage"
+              value={profile.linkedinBusinessPage ?? ''}
+              onChange={(e) => setProfile((p) => ({ ...p, linkedinBusinessPage: e.target.value }))}
+              placeholder="https://linkedin.com/company/…"
             />
           </div>
           <div>
@@ -213,50 +245,65 @@ export default function EmployerRegisterPage() {
               placeholder="IT/ITeS, BFSI"
             />
           </div>
+          <div className="sm:col-span-2">
+            <Label>Internship types expected</Label>
+            <div className="flex flex-wrap gap-2">
+              {INTERNSHIP_CATEGORIES.map((category) => {
+                const active = (profile.internshipTypesExpected ?? []).includes(category);
+                return (
+                  <button
+                    key={category}
+                    type="button"
+                    onClick={() => toggleInternshipType(category)}
+                    className={`rounded-full border px-3 py-1 text-xs font-semibold transition ${
+                      active
+                        ? 'border-sp-blue bg-sp-blue text-white'
+                        : 'border-black/10 text-sp-ink-2 hover:border-sp-blue'
+                    }`}
+                  >
+                    {category}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+          <div className="sm:col-span-2">
+            <Label htmlFor="certificate">Certificate of Incorporation</Label>
+            <input
+              id="certificate"
+              type="file"
+              accept=".pdf,.png,.jpg,.jpeg"
+              onChange={(e) => setPendingFile(e.target.files?.[0] ?? null)}
+              className="text-sm"
+            />
+            {profile.certificateOfIncorporationUrl && !pendingFile && (
+              <p className="mt-2 text-sm text-sp-ink-3">
+                On file —{' '}
+                <a
+                  href={resolveFileUrl(profile.certificateOfIncorporationUrl)}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="font-semibold text-sp-blue"
+                >
+                  View document
+                </a>
+              </p>
+            )}
+          </div>
 
           {error && <p className="sm:col-span-2 text-sm font-semibold text-sp-danger">{error}</p>}
-          {saved && <p className="sm:col-span-2 text-sm font-semibold text-sp-good">Saved!</p>}
+          {saved && (
+            <p className="sm:col-span-2 text-sm font-semibold text-sp-good">
+              Submitted! We&apos;ll notify you once it&apos;s reviewed.
+            </p>
+          )}
 
           <div className="sm:col-span-2">
             <Button type="submit" disabled={saving} withArrow>
-              {saving ? 'Saving…' : 'Save organization profile'}
+              {saving ? 'Submitting…' : 'Submit expression of interest'}
             </Button>
           </div>
         </form>
-      </Card>
-
-      <Card className="p-6">
-        <h2 className="mb-2 text-lg font-bold text-sp-navy">Verification document</h2>
-        <p className="mb-4 text-sm text-sp-ink-2">
-          Upload an incorporation certificate or GST document so our admin team can verify your
-          organization.
-        </p>
-        <input
-          type="file"
-          accept=".pdf,.png,.jpg,.jpeg"
-          onChange={(e) => e.target.files?.[0] && uploadDocument(e.target.files[0], e.target)}
-          className="text-sm"
-        />
-        {uploadStatus === 'uploading' && <p className="mt-2 text-sm text-sp-ink-3">Uploading…</p>}
-        {uploadStatus === 'done' && (
-          <p className="mt-2 text-sm font-semibold text-sp-good">Document uploaded.</p>
-        )}
-        {uploadStatus === 'error' && (
-          <p className="mt-2 text-sm font-semibold text-sp-danger">Upload failed. Try again.</p>
-        )}
-        {profile.verificationDocumentUrl && (
-          <p className="mt-2 text-sm text-sp-ink-3">
-            Document on file —{' '}
-            <a
-              href={resolveFileUrl(profile.verificationDocumentUrl)}
-              target="_blank"
-              rel="noreferrer"
-              className="font-semibold text-sp-blue"
-            >
-              View document
-            </a>
-          </p>
-        )}
       </Card>
     </div>
   );

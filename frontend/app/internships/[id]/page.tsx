@@ -226,7 +226,11 @@ export default async function InternshipDetailPage({ params }: Props) {
                 </Link>
               </div>
             ) : (
-              <ApplyForm internshipId={internship.id} initialApplicationStatus={applicationStatus} />
+              <ApplyForm
+                internshipId={internship.id}
+                checklistItems={internship.checklistItems}
+                initialApplicationStatus={applicationStatus}
+              />
             )}
           </Card>
         )}

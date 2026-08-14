@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import {
+  APPLICATION_NOTE_MODEL,
   EMPLOYER_MODEL,
   INTERNSHIP_APPLICATION_MODEL,
   INTERNSHIP_MODEL,
@@ -14,6 +15,7 @@ import {
   USER_MODEL,
 } from '../../database/database.constants.js';
 import {
+  ApplicationNote,
   Employer,
   Internship,
   InternshipApplication,
@@ -24,8 +26,10 @@ import { NotificationsService } from '../notifications/notifications.service.js'
 import type { PaginationQueryDto } from '../../common/dto/pagination-query.dto.js';
 import { resolvePagination, toPaginatedResult } from '../../common/utils/pagination.util.js';
 import { isStudentProfileComplete } from '../../common/utils/student-profile.util.js';
+import type { AuthenticatedUser } from '../../common/decorators/current-user.decorator.js';
 import { ApplyDto } from './dto/apply.dto.js';
 import { UpdateApplicationStatusDto } from './dto/update-application-status.dto.js';
+import { AddApplicationNoteDto } from './dto/add-application-note.dto.js';
 
 @Injectable()
 export class ApplicationsService {
@@ -36,6 +40,7 @@ export class ApplicationsService {
     @Inject(STUDENT_MODEL) private readonly studentModel: typeof Student,
     @Inject(EMPLOYER_MODEL) private readonly employerModel: typeof Employer,
     @Inject(USER_MODEL) private readonly userModel: typeof User,
+    @Inject(APPLICATION_NOTE_MODEL) private readonly applicationNoteModel: typeof ApplicationNote,
     private readonly notificationsService: NotificationsService,
     private readonly configService: ConfigService,
   ) {}
@@ -80,6 +85,7 @@ export class ApplicationsService {
       internshipId,
       studentId: student.id,
       coverNote: dto.coverNote ?? null,
+      checklistResponses: dto.checklistResponses ?? [],
       status: 'applied',
     });
   }
@@ -173,5 +179,50 @@ export class ApplicationsService {
     }
 
     return application;
+  }
+
+  // Employers may only see/annotate applications to their own listings; admins
+  // may act on any application. Shared by both note endpoints below.
+  private async getApplicationForNotes(
+    applicationId: number,
+    user: AuthenticatedUser,
+  ): Promise<InternshipApplication> {
+    const application = await this.applicationModel.findByPk(applicationId, {
+      include: [{ model: this.internshipModel, as: 'internship' }],
+    });
+    if (!application) {
+      throw new NotFoundException('Application not found.');
+    }
+    if (user.role === 'employer') {
+      const employer = await this.getEmployer(user.sub);
+      if (application.internship?.employerId !== employer.id) {
+        throw new NotFoundException('Application not found.');
+      }
+    }
+    return application;
+  }
+
+  async addNote(
+    applicationId: number,
+    user: AuthenticatedUser,
+    dto: AddApplicationNoteDto,
+  ): Promise<ApplicationNote> {
+    await this.getApplicationForNotes(applicationId, user);
+    return this.applicationNoteModel.create({
+      applicationId,
+      authorUserId: user.sub,
+      note: dto.note,
+    });
+  }
+
+  async listNotes(applicationId: number, user: AuthenticatedUser): Promise<ApplicationNote[]> {
+    await this.getApplicationForNotes(applicationId, user);
+    return this.applicationNoteModel.findAll({
+      where: { applicationId },
+      include: [
+        { model: this.userModel, as: 'author', attributes: { exclude: ['passwordHash'] } },
+      ],
+      order: [['createdAt', 'ASC']],
+    });
   }
 }

@@ -102,6 +102,13 @@ export class Internship extends Model<
   @Default([])
   declare eligibility: CreationOptional<string[]>;
 
+  // AI-generated applicant checklist — LLM-derived from the description (see
+  // modules/checklist/), employer-editable before/after generation. Plain
+  // strings, same convention as skillTags/perks/eligibility above.
+  @Attribute(DataTypes.JSONB)
+  @Default([])
+  declare checklistItems: CreationOptional<string[]>;
+
   @Attribute(DataTypes.INTEGER)
   @NotNull
   @Default(1)

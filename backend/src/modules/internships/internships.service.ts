@@ -15,6 +15,8 @@ import {
 import { Employer, Internship, InternshipApplication } from '../../database/models/index.js';
 import { INTERNSHIP_CATEGORIES } from '../../common/constants/categories.js';
 import type { AuthenticatedUser } from '../../common/decorators/current-user.decorator.js';
+import { CHECKLIST_GENERATOR_SERVICE } from '../checklist/checklist.constants.js';
+import type { ChecklistGeneratorService } from '../checklist/checklist.types.js';
 import { CreateInternshipDto } from './dto/create-internship.dto.js';
 import { UpdateInternshipDto } from './dto/update-internship.dto.js';
 import { QueryInternshipsDto } from './dto/query-internships.dto.js';
@@ -28,6 +30,8 @@ export class InternshipsService {
     @Inject(EMPLOYER_MODEL) private readonly employerModel: typeof Employer,
     @Inject(INTERNSHIP_APPLICATION_MODEL)
     private readonly applicationModel: typeof InternshipApplication,
+    @Inject(CHECKLIST_GENERATOR_SERVICE)
+    private readonly checklistGeneratorService: ChecklistGeneratorService,
     private readonly configService: ConfigService,
   ) {}
 
@@ -61,10 +65,19 @@ export class InternshipsService {
       responsibilities: dto.responsibilities ?? [],
       perks: dto.perks ?? [],
       eligibility: dto.eligibility ?? [],
+      checklistItems: dto.checklistItems ?? [],
       openings: dto.openings ?? 1,
       applicationDeadline: new Date(dto.applicationDeadline),
       status: 'draft',
     });
+  }
+
+  // Stateless by design — an employer can generate a checklist while still
+  // drafting the posting, before an Internship row exists at all. The
+  // (possibly edited) result is saved via the normal create/update DTO.
+  async generateChecklist(userId: number, description: string): Promise<string[]> {
+    await this.getApprovedEmployer(userId);
+    return this.checklistGeneratorService.generate(description);
   }
 
   async findPublished(query: QueryInternshipsDto) {

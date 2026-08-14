@@ -7,6 +7,8 @@ import helmet from 'helmet';
 import * as path from 'node:path';
 import { AppModule } from './app.module.js';
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter.js';
+import { APP_LOGGER } from './common/logging/app-logger.constants.js';
+import type { AppLogger } from './common/logging/app-logger.types.js';
 
 const API_PREFIX = 'api/v1';
 // Stable, unversioned paths a load balancer / doc reader expects regardless
@@ -19,7 +21,7 @@ async function bootstrap() {
   app.use(helmet());
 
   app.setGlobalPrefix(API_PREFIX, { exclude: PREFIX_EXCLUDE });
-  app.useGlobalFilters(new AllExceptionsFilter());
+  app.useGlobalFilters(new AllExceptionsFilter(app.get<AppLogger>(APP_LOGGER)));
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,

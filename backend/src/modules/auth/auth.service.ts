@@ -1,4 +1,4 @@
-import { Inject, Injectable, Logger, HttpException, HttpStatus, UnauthorizedException } from '@nestjs/common';
+import { Inject, Injectable, HttpException, HttpStatus, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { Op } from '@sequelize/core';
@@ -9,6 +9,8 @@ import {
   USER_MODEL,
 } from '../../database/database.constants.js';
 import { Employer, OtpCode, Student, User } from '../../database/models/index.js';
+import { APP_LOGGER } from '../../common/logging/app-logger.constants.js';
+import type { AppLogger } from '../../common/logging/app-logger.types.js';
 
 function generateOtp(): string {
   return String(Math.floor(100000 + Math.random() * 900000));
@@ -23,13 +25,12 @@ function generateOtp(): string {
  */
 @Injectable()
 export class AuthService {
-  private readonly logger = new Logger(AuthService.name);
-
   constructor(
     @Inject(OTP_CODE_MODEL) private readonly otpCodeModel: typeof OtpCode,
     @Inject(USER_MODEL) private readonly userModel: typeof User,
     @Inject(STUDENT_MODEL) private readonly studentModel: typeof Student,
     @Inject(EMPLOYER_MODEL) private readonly employerModel: typeof Employer,
+    @Inject(APP_LOGGER) private readonly logger: AppLogger,
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
   ) {}
@@ -71,7 +72,7 @@ export class AuthService {
 
     // TODO: replace with a real transactional email/SMS provider (SES, SMTP, etc.) before
     // this runs anywhere but a local/dev environment.
-    this.logger.log(`[DEV OTP] ${role} ${identifier} -> ${otp} (expires in ${ttlMinutes}m)`);
+    this.logger.log(`[DEV OTP] ${role} ${identifier} -> ${otp} (expires in ${ttlMinutes}m)`, AuthService.name);
 
     return {
       message: 'OTP sent.',
@@ -114,6 +115,7 @@ export class AuthService {
         await this.employerModel.create({
           userId: user.id,
           industryTags: [],
+          internshipTypesExpected: [],
           verificationStatus: 'pending',
         });
       }

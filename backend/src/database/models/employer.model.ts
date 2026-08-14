@@ -17,8 +17,13 @@ import {
 } from '@sequelize/core/decorators-legacy';
 import { User } from './user.model.js';
 
-export type EmployerVerificationStatus = 'pending' | 'approved' | 'rejected' | 'suspended';
+export type EmployerVerificationStatus = 'pending' | 'approved' | 'rejected';
 
+// EOI-based onboarding: a single expression-of-interest submission (reason
+// for EOI, CIN, Certificate of Incorporation, headcount, LinkedIn business
+// page, internship types expected) goes straight to a one-step admin
+// approve/reject — no separate CIN/GST + verification-document gate, no
+// multi-stage due diligence.
 @Table({ tableName: 'employers' })
 export class Employer extends Model<InferAttributes<Employer>, InferCreationAttributes<Employer>> {
   @Attribute(DataTypes.INTEGER)
@@ -37,11 +42,24 @@ export class Employer extends Model<InferAttributes<Employer>, InferCreationAttr
   @Attribute(DataTypes.STRING)
   declare organizationName: string | null;
 
+  @Attribute(DataTypes.TEXT)
+  declare reasonForEoi: string | null;
+
   @Attribute(DataTypes.STRING)
   declare cin: string | null;
 
   @Attribute(DataTypes.STRING)
-  declare gst: string | null;
+  declare certificateOfIncorporationUrl: string | null;
+
+  @Attribute(DataTypes.INTEGER)
+  declare headcount: number | null;
+
+  @Attribute(DataTypes.STRING)
+  declare linkedinBusinessPage: string | null;
+
+  @Attribute(DataTypes.JSONB)
+  @Default([])
+  declare internshipTypesExpected: CreationOptional<string[]>;
 
   @Attribute(DataTypes.STRING)
   declare website: string | null;
@@ -56,10 +74,7 @@ export class Employer extends Model<InferAttributes<Employer>, InferCreationAttr
   @Default([])
   declare industryTags: CreationOptional<string[]>;
 
-  @Attribute(DataTypes.STRING)
-  declare verificationDocumentUrl: string | null;
-
-  @Attribute(DataTypes.ENUM('pending', 'approved', 'rejected', 'suspended'))
+  @Attribute(DataTypes.ENUM('pending', 'approved', 'rejected'))
   @NotNull
   @Default('pending')
   declare verificationStatus: CreationOptional<EmployerVerificationStatus>;

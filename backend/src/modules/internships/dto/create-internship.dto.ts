@@ -80,6 +80,11 @@ export class CreateInternshipDto {
   eligibility?: string[];
 
   @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  checklistItems?: string[];
+
+  @IsOptional()
   @IsInt()
   @Min(1)
   openings?: number;

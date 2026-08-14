@@ -48,6 +48,14 @@ export const envValidationSchema = Joi.object({
     .default('')
     .when('STORAGE_DRIVER', { is: 'r2', then: Joi.string().min(1).required() }),
 
+  // AI-generated applicant checklist — 'heuristic' (default, no external
+  // dependency) or 'anthropic' (Claude API; falls back to heuristic if
+  // ANTHROPIC_API_KEY is empty, same pattern as SMTP/R2 above).
+  CHECKLIST_PROVIDER: Joi.string().valid('heuristic', 'anthropic').default('heuristic'),
+  CHECKLIST_MAX_ITEMS: Joi.number().integer().min(1).max(20).default(6),
+  ANTHROPIC_API_KEY: Joi.string().allow('').default(''),
+  CHECKLIST_LLM_MODEL: Joi.string().default('claude-haiku-4-5-20251001'),
+
   OTP_TTL_MINUTES: Joi.number().integer().min(1).default(10),
   OTP_REQUEST_LIMIT: Joi.number().integer().min(1).default(5),
   OTP_VERIFY_ATTEMPT_LIMIT: Joi.number().integer().min(1).default(5),

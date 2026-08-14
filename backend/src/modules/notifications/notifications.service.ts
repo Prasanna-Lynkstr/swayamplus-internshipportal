@@ -1,8 +1,10 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import nodemailer from 'nodemailer';
 import type { Transporter } from 'nodemailer';
 import { PlatformSettingsService } from '../platform-settings/platform-settings.service.js';
+import { APP_LOGGER } from '../../common/logging/app-logger.constants.js';
+import type { AppLogger } from '../../common/logging/app-logger.types.js';
 
 // Real delivery via any standard SMTP provider (ZeptoMail, SES, Mailgun,
 // Postmark, ...) once SMTP_HOST is set — see .env.example. Falls back to a
@@ -12,13 +14,13 @@ import { PlatformSettingsService } from '../platform-settings/platform-settings.
 // outbound email at runtime without touching env vars or redeploying.
 @Injectable()
 export class NotificationsService {
-  private readonly logger = new Logger(NotificationsService.name);
   private readonly transporter: Transporter | null;
   private readonly fromAddress: string;
 
   constructor(
     private readonly configService: ConfigService,
     private readonly platformSettingsService: PlatformSettingsService,
+    @Inject(APP_LOGGER) private readonly logger: AppLogger,
   ) {
     const host = this.configService.get<string>('SMTP_HOST', '');
     this.fromAddress =
@@ -45,13 +47,17 @@ export class NotificationsService {
 
       if (!this.transporter || !emailNotificationsEnabled) {
         const reason = !emailNotificationsEnabled ? 'disabled by admin' : 'SMTP not configured';
-        this.logger.log(`[DEV EMAIL — ${reason}] To: ${to} — ${subject}: ${text}`);
+        this.logger.log(`[DEV EMAIL — ${reason}] To: ${to} — ${subject}: ${text}`, NotificationsService.name);
         return;
       }
 
       await this.transporter.sendMail({ from: this.fromAddress, to, subject, text });
     } catch (err) {
-      this.logger.error(`Failed to send email to ${to}: ${(err as Error).message}`);
+      this.logger.error(
+        `Failed to send email to ${to}: ${(err as Error).message}`,
+        undefined,
+        NotificationsService.name,
+      );
     }
   }
 

@@ -22,6 +22,7 @@ import { InternshipsService } from './internships.service.js';
 import { CreateInternshipDto } from './dto/create-internship.dto.js';
 import { UpdateInternshipDto } from './dto/update-internship.dto.js';
 import { QueryInternshipsDto } from './dto/query-internships.dto.js';
+import { GenerateChecklistDto } from './dto/generate-checklist.dto.js';
 
 @Controller('internships')
 export class InternshipsController {
@@ -51,6 +52,20 @@ export class InternshipsController {
   @Get('categories')
   getCategoryCounts() {
     return this.internshipsService.getCategoryCounts();
+  }
+
+  // Declared before ':id' routes below so 'checklist' is never captured as
+  // an :id param — stateless, works from a draft posting before any
+  // Internship row exists (see InternshipsService.generateChecklist).
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('employer')
+  @Post('checklist/generate')
+  async generateChecklist(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() dto: GenerateChecklistDto,
+  ) {
+    const items = await this.internshipsService.generateChecklist(user.sub, dto.description);
+    return { items };
   }
 
   // Not @Public(): this route is publicly reachable but auth-aware — a

@@ -18,6 +18,7 @@ import { Roles } from '../../common/decorators/roles.decorator.js';
 import { CurrentUser, type AuthenticatedUser } from '../../common/decorators/current-user.decorator.js';
 import { StudentsService } from './students.service.js';
 import { UpdateStudentDto } from './dto/update-student.dto.js';
+import { UpdateStudentPreferencesDto } from './dto/update-student-preferences.dto.js';
 
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles('student')
@@ -44,6 +45,19 @@ export class StudentsController {
   @Get('me/dashboard')
   getMyDashboard(@CurrentUser() user: AuthenticatedUser) {
     return this.studentsService.getDashboardStats(user.sub);
+  }
+
+  @Get('me/preferences')
+  getMyPreferences(@CurrentUser() user: AuthenticatedUser) {
+    return this.studentsService.getPreferences(user.sub);
+  }
+
+  @Patch('me/preferences')
+  updateMyPreferences(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() dto: UpdateStudentPreferencesDto,
+  ) {
+    return this.studentsService.updatePreferences(user.sub, dto);
   }
 
   @Post('me/resume')

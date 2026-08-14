@@ -59,9 +59,12 @@ export class EmployersService {
     return employer;
   }
 
-  async saveVerificationDocument(userId: number, file: UploadableFile): Promise<Employer> {
+  async saveCertificateOfIncorporation(userId: number, file: UploadableFile): Promise<Employer> {
     const employer = await this.getByUserId(userId);
-    employer.verificationDocumentUrl = await this.storageService.save(file, 'verification-documents');
+    employer.certificateOfIncorporationUrl = await this.storageService.save(
+      file,
+      'verification-documents',
+    );
     if (employer.verificationStatus === 'rejected') {
       employer.verificationStatus = 'pending';
     }

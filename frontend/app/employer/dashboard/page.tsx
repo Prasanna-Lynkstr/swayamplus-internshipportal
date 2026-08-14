@@ -15,6 +15,7 @@ import type {
   EmployerDashboardStats,
   Internship,
   InternshipApplication,
+  ApplicationNote,
   ApplicationStatus,
   PaginatedResult,
 } from '@/lib/types';
@@ -26,8 +27,76 @@ const STATUS_TONE: Record<string, 'orange' | 'good' | 'danger' | 'neutral'> = {
   archived: 'neutral',
 };
 
+function ApplicantNotes({ applicationId, token }: { applicationId: number; token: string | null }) {
+  const [notes, setNotes] = useState<ApplicationNote[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [draft, setDraft] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  const load = () => {
+    if (!token) return;
+    setLoading(true);
+    apiFetch<ApplicationNote[]>(`/applications/${applicationId}/notes`, { token })
+      .then(setNotes)
+      .finally(() => setLoading(false));
+  };
+
+  useEffect(load, [applicationId, token]);
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!draft.trim()) return;
+    setSaving(true);
+    try {
+      await apiFetch(`/applications/${applicationId}/notes`, {
+        method: 'POST',
+        token,
+        body: { note: draft.trim() },
+      });
+      setDraft('');
+      load();
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="mt-2 rounded-sp-lg bg-sp-bg-sunken p-3">
+      {loading ? (
+        <p className="text-xs text-sp-ink-3">Loading notes…</p>
+      ) : notes.length === 0 ? (
+        <p className="text-xs text-sp-ink-3">No notes yet.</p>
+      ) : (
+        <ul className="mb-2 flex flex-col gap-1.5">
+          {notes.map((n) => (
+            <li key={n.id} className="text-xs text-sp-ink-2">
+              <span className="font-semibold text-sp-navy">{n.author?.identifier ?? 'Unknown'}</span>{' '}
+              <span className="text-sp-ink-3">
+                {new Date(n.createdAt).toLocaleString('en-IN')}
+              </span>
+              <p>{n.note}</p>
+            </li>
+          ))}
+        </ul>
+      )}
+      <form onSubmit={submit} className="flex gap-2">
+        <input
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          placeholder="Add a note about this applicant…"
+          className="flex-1 rounded-sp-md border border-black/10 px-2 py-1 text-xs outline-none focus:border-sp-blue"
+        />
+        <Button type="submit" variant="secondary" disabled={saving || !draft.trim()}>
+          Add
+        </Button>
+      </form>
+    </div>
+  );
+}
+
 function ApplicantsPanel({ internshipId, token }: { internshipId: number; token: string | null }) {
   const [applications, setApplications] = useState<InternshipApplication[]>([]);
+  const [notesOpenFor, setNotesOpenFor] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   // Separate from actionError for the same reason as EmployerDashboardPage below:
   // a status-update failure shouldn't hide applicants that already loaded fine.
@@ -79,6 +148,15 @@ function ApplicantsPanel({ internshipId, token }: { internshipId: number; token:
               {new Date(app.createdAt).toLocaleDateString('en-IN')}
             </p>
             {app.coverNote && <p className="mt-1 text-sm text-sp-ink-2">&ldquo;{app.coverNote}&rdquo;</p>}
+            {app.checklistResponses.length > 0 && (
+              <ul className="mt-1 flex flex-col gap-0.5">
+                {app.checklistResponses.map((r) => (
+                  <li key={r.item} className="text-xs text-sp-ink-3">
+                    {r.met ? '✅' : '⬜️'} {r.item}
+                  </li>
+                ))}
+              </ul>
+            )}
             {app.student?.resumeUrl && (
               <a
                 href={resolveFileUrl(app.student.resumeUrl)}
@@ -90,21 +168,34 @@ function ApplicantsPanel({ internshipId, token }: { internshipId: number; token:
               </a>
             )}
           </div>
-          <div className="flex items-center gap-2">
-            <Badge tone={app.status === 'rejected' ? 'danger' : app.status === 'offered' ? 'good' : 'neutral'}>
-              {app.status}
-            </Badge>
-            {app.status !== 'withdrawn' && (
-              <Select
-                value=""
-                onChange={(e) => e.target.value && updateStatus(app.id, e.target.value as ApplicationStatus)}
+          <div className="flex flex-col items-end gap-2">
+            <div className="flex items-center gap-2">
+              <Badge tone={app.status === 'rejected' ? 'danger' : app.status === 'offered' ? 'good' : 'neutral'}>
+                {app.status}
+              </Badge>
+              {app.status !== 'withdrawn' && (
+                <Select
+                  value=""
+                  onChange={(e) => e.target.value && updateStatus(app.id, e.target.value as ApplicationStatus)}
+                >
+                  <option value="">Update status…</option>
+                  <option value="shortlisted">Shortlist</option>
+                  <option value="interviewing">Interviewing</option>
+                  <option value="offered">Offer</option>
+                  <option value="rejected">Reject</option>
+                </Select>
+              )}
+              <Button
+                variant="ghost"
+                onClick={() => setNotesOpenFor(notesOpenFor === app.id ? null : app.id)}
               >
-                <option value="">Update status…</option>
-                <option value="shortlisted">Shortlist</option>
-                <option value="interviewing">Interviewing</option>
-                <option value="offered">Offer</option>
-                <option value="rejected">Reject</option>
-              </Select>
+                Notes
+              </Button>
+            </div>
+            {notesOpenFor === app.id && (
+              <div className="w-full min-w-[16rem]">
+                <ApplicantNotes applicationId={app.id} token={token} />
+              </div>
             )}
           </div>
         </div>

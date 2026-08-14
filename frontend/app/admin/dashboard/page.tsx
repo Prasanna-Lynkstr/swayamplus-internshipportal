@@ -96,7 +96,6 @@ export default function AdminDashboardPage() {
                   <Badge tone="orange">Pending {stats.employers.pending}</Badge>
                   <Badge tone="good">Approved {stats.employers.approved}</Badge>
                   <Badge tone="danger">Rejected {stats.employers.rejected}</Badge>
-                  <Badge>Suspended {stats.employers.suspended}</Badge>
                 </div>
               </Card>
               <Card className="p-6">

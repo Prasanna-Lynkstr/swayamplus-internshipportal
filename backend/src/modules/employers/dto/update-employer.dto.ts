@@ -1,4 +1,5 @@
-import { IsArray, IsOptional, IsString, IsUrl } from 'class-validator';
+import { IsArray, IsIn, IsInt, IsOptional, IsString, IsUrl, Min } from 'class-validator';
+import { INTERNSHIP_CATEGORIES } from '../../../common/constants/categories.js';
 
 export class UpdateEmployerDto {
   @IsOptional()
@@ -7,11 +8,25 @@ export class UpdateEmployerDto {
 
   @IsOptional()
   @IsString()
-  cin?: string;
+  reasonForEoi?: string;
 
   @IsOptional()
   @IsString()
-  gst?: string;
+  cin?: string;
+
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  headcount?: number;
+
+  @IsOptional()
+  @IsUrl()
+  linkedinBusinessPage?: string;
+
+  @IsOptional()
+  @IsArray()
+  @IsIn(INTERNSHIP_CATEGORIES, { each: true })
+  internshipTypesExpected?: string[];
 
   @IsOptional()
   @IsUrl()

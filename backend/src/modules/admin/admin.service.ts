@@ -180,7 +180,7 @@ export class AdminService {
       this.platformSettingsService.getSettings(),
     ]);
 
-    const employers = { total: 0, pending: 0, approved: 0, rejected: 0, suspended: 0 };
+    const employers = { total: 0, pending: 0, approved: 0, rejected: 0 };
     for (const row of employersByStatus as unknown as Array<{
       verificationStatus: keyof typeof employers;
       count: string;

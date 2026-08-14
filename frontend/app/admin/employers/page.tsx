@@ -108,19 +108,43 @@ export default function AdminEmployersPage() {
                   </div>
                   <p className="text-sm text-sp-ink-3">
                     {employer.user?.identifier} · {employer.hqCity ?? 'City not set'}
+                    {employer.cin ? ` · CIN ${employer.cin}` : ''}
+                    {employer.headcount ? ` · ${employer.headcount} employees` : ''}
                   </p>
-                  {employer.verificationDocumentUrl ? (
-                    <a
-                      href={resolveFileUrl(employer.verificationDocumentUrl)}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="text-sm font-semibold text-sp-blue"
-                    >
-                      View verification document
-                    </a>
-                  ) : (
-                    <p className="text-sm text-sp-ink-3">No document uploaded yet.</p>
+                  {employer.reasonForEoi && (
+                    <p className="mt-1 max-w-xl text-sm text-sp-ink-2">
+                      &ldquo;{employer.reasonForEoi}&rdquo;
+                    </p>
                   )}
+                  {employer.internshipTypesExpected.length > 0 && (
+                    <p className="mt-1 text-xs text-sp-ink-3">
+                      Expects: {employer.internshipTypesExpected.join(', ')}
+                    </p>
+                  )}
+                  <div className="mt-1 flex flex-wrap gap-3">
+                    {employer.certificateOfIncorporationUrl ? (
+                      <a
+                        href={resolveFileUrl(employer.certificateOfIncorporationUrl)}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-sm font-semibold text-sp-blue"
+                      >
+                        View Certificate of Incorporation
+                      </a>
+                    ) : (
+                      <p className="text-sm text-sp-ink-3">No certificate uploaded yet.</p>
+                    )}
+                    {employer.linkedinBusinessPage && (
+                      <a
+                        href={employer.linkedinBusinessPage}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-sm font-semibold text-sp-blue"
+                      >
+                        LinkedIn page
+                      </a>
+                    )}
+                  </div>
                 </div>
                 <div className="flex gap-2">
                   <Button variant="secondary" onClick={() => decide(employer.id, 'rejected')}>

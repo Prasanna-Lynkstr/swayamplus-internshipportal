@@ -1,7 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { ApiError } from '@/lib/api';
+import { apiFetch, ApiError } from '@/lib/api';
+import { useAuth } from '@/lib/auth';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input, Label, Select, Textarea } from '@/components/ui/Input';
@@ -50,6 +51,7 @@ export interface InternshipFormValues {
   responsibilities: string;
   perks: string;
   eligibility: string;
+  checklistItems: string;
 }
 
 export const EMPTY_INTERNSHIP_FORM: InternshipFormValues = {
@@ -70,6 +72,7 @@ export const EMPTY_INTERNSHIP_FORM: InternshipFormValues = {
   responsibilities: '',
   perks: '',
   eligibility: '',
+  checklistItems: '',
 };
 
 export function internshipToFormValues(internship: Internship): InternshipFormValues {
@@ -93,6 +96,7 @@ export function internshipToFormValues(internship: Internship): InternshipFormVa
     responsibilities: internship.responsibilities.join('\n'),
     perks: internship.perks.join(', '),
     eligibility: internship.eligibility.join(', '),
+    checklistItems: internship.checklistItems.join('\n'),
   };
 }
 
@@ -115,6 +119,7 @@ export function internshipFormToBody(form: InternshipFormValues) {
     responsibilities: splitLines(form.responsibilities),
     perks: splitCommas(form.perks),
     eligibility: splitCommas(form.eligibility),
+    checklistItems: splitLines(form.checklistItems),
   };
 }
 
@@ -131,12 +136,31 @@ export function InternshipForm({
   fallbackError: string;
   onSubmit: (body: ReturnType<typeof internshipFormToBody>) => Promise<void>;
 }) {
+  const { token } = useAuth();
   const [form, setForm] = useState<InternshipFormValues>(initial ?? EMPTY_INTERNSHIP_FORM);
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
+  const [generating, setGenerating] = useState(false);
 
   const set = <K extends keyof InternshipFormValues>(key: K, value: InternshipFormValues[K]) =>
     setForm((f) => ({ ...f, [key]: value }));
+
+  const generateChecklist = async () => {
+    setGenerating(true);
+    setError('');
+    try {
+      const { items } = await apiFetch<{ items: string[] }>('/internships/checklist/generate', {
+        method: 'POST',
+        token,
+        body: { description: form.description },
+      });
+      set('checklistItems', items.join('\n'));
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Could not generate a checklist.');
+    } finally {
+      setGenerating(false);
+    }
+  };
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -314,6 +338,31 @@ export function InternshipForm({
             onChange={(e) => set('perks', e.target.value)}
             placeholder="Certificate of completion, Letter of recommendation, Job offer"
           />
+        </div>
+
+        <div className="sm:col-span-2">
+          <div className="mb-1 flex items-center justify-between">
+            <Label htmlFor="checklistItems">Applicant checklist (one per line)</Label>
+            <Button
+              type="button"
+              variant="secondary"
+              disabled={generating || form.description.length < 20}
+              onClick={generateChecklist}
+            >
+              {generating ? 'Generating…' : 'Generate from description'}
+            </Button>
+          </div>
+          <Textarea
+            id="checklistItems"
+            rows={4}
+            value={form.checklistItems}
+            onChange={(e) => set('checklistItems', e.target.value)}
+            placeholder={'Comfortable with React\nCan commit 20 hrs/week\nPrior internship experience (optional)'}
+          />
+          <p className="mt-1 text-xs text-sp-ink-3">
+            Shown to students at apply time — they self-rate against each item. Edit freely after
+            generating.
+          </p>
         </div>
 
         {error && <p className="sm:col-span-2 text-sm font-semibold text-sp-danger">{error}</p>}

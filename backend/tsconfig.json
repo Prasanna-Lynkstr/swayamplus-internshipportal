@@ -14,11 +14,7 @@
     "resolveJsonModule": true,
     "allowJs": false,
     "noEmit": true,
-    "types": ["node"],
-    "baseUrl": ".",
-    "paths": {
-      "@/*": ["src/*"]
-    }
+    "types": ["node"]
   },
   "include": ["src/**/*.ts", "scripts/**/*.ts"]
 }

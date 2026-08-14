@@ -19,15 +19,27 @@ const STATUS_COPY: Record<ApplicationStatus, string> = {
 
 export function ApplyForm({
   internshipId,
+  checklistItems = [],
   initialApplicationStatus = null,
 }: {
   internshipId: number;
+  checklistItems?: string[];
   initialApplicationStatus?: ApplicationStatus | null;
 }) {
   const { user, token } = useAuth();
   const [coverNote, setCoverNote] = useState('');
+  const [checked, setChecked] = useState<Set<string>>(new Set());
   const [status, setStatus] = useState<'idle' | 'submitting' | 'done' | 'error'>('idle');
   const [error, setError] = useState('');
+
+  const toggleChecklistItem = (item: string) => {
+    setChecked((prev) => {
+      const next = new Set(prev);
+      if (next.has(item)) next.delete(item);
+      else next.add(item);
+      return next;
+    });
+  };
 
   if (!user) {
     return (
@@ -79,7 +91,13 @@ export function ApplyForm({
       await apiFetch(`/internships/${internshipId}/apply`, {
         method: 'POST',
         token,
-        body: { coverNote: coverNote || undefined },
+        body: {
+          coverNote: coverNote || undefined,
+          checklistResponses: checklistItems.map((item) => ({
+            item,
+            met: checked.has(item),
+          })),
+        },
       });
       setStatus('done');
     } catch (err) {
@@ -90,6 +108,25 @@ export function ApplyForm({
 
   return (
     <form onSubmit={submit} className="flex flex-col gap-3">
+      {checklistItems.length > 0 && (
+        <div className="rounded-sp-lg bg-sp-bg-sunken p-3">
+          <p className="mb-2 text-xs font-bold uppercase tracking-wide text-sp-ink-2">
+            Before you apply, check what applies to you
+          </p>
+          <div className="flex flex-col gap-1.5">
+            {checklistItems.map((item) => (
+              <label key={item} className="flex items-center gap-2 text-sm text-sp-ink-2">
+                <input
+                  type="checkbox"
+                  checked={checked.has(item)}
+                  onChange={() => toggleChecklistItem(item)}
+                />
+                {item}
+              </label>
+            ))}
+          </div>
+        </div>
+      )}
       <Textarea
         placeholder="Add a short note about why you're a good fit (optional)"
         rows={4}

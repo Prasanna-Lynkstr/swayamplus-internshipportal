@@ -9,7 +9,176 @@ import { OtpFlow } from '@/components/auth/OtpFlow';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input, Label } from '@/components/ui/Input';
-import type { Student } from '@/lib/types';
+import { INTERNSHIP_CATEGORIES } from '@/lib/categories';
+import type { Student, StudentPreferences } from '@/lib/types';
+
+const MODE_OPTIONS = ['remote', 'onsite', 'hybrid'] as const;
+const EMPLOYMENT_TYPE_OPTIONS = ['full-time', 'part-time'] as const;
+
+function toggleInArray<T>(arr: T[], value: T): T[] {
+  return arr.includes(value) ? arr.filter((v) => v !== value) : [...arr, value];
+}
+
+function PreferencesCard({ token }: { token: string | null }) {
+  const [prefs, setPrefs] = useState<StudentPreferences | null>(null);
+  const [locationsText, setLocationsText] = useState('');
+  const [rolesText, setRolesText] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+
+  useEffect(() => {
+    if (!token) return;
+    apiFetch<StudentPreferences>('/students/me/preferences', { token }).then((p) => {
+      setPrefs(p);
+      setLocationsText(p.preferredLocations.join(', '));
+      setRolesText(p.rolesOfInterest.join(', '));
+    });
+  }, [token]);
+
+  if (!prefs) return <p className="text-sm text-sp-ink-3">Loading preferences…</p>;
+
+  const save = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSaving(true);
+    setSaved(false);
+    try {
+      const updated = await apiFetch<StudentPreferences>('/students/me/preferences', {
+        method: 'PATCH',
+        token,
+        body: {
+          preferredCategories: prefs.preferredCategories,
+          preferredModes: prefs.preferredModes,
+          preferredEmploymentTypes: prefs.preferredEmploymentTypes,
+          paidPreference: prefs.paidPreference,
+          availability: prefs.availability || undefined,
+          preferredLocations: locationsText.split(',').map((s) => s.trim()).filter(Boolean),
+          rolesOfInterest: rolesText.split(',').map((s) => s.trim()).filter(Boolean),
+        },
+      });
+      setPrefs(updated);
+      setSaved(true);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <form onSubmit={save} className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+      <div className="sm:col-span-2">
+        <Label>Internship types you're interested in</Label>
+        <div className="flex flex-wrap gap-2">
+          {INTERNSHIP_CATEGORIES.map((category) => {
+            const active = prefs.preferredCategories.includes(category);
+            return (
+              <button
+                key={category}
+                type="button"
+                onClick={() =>
+                  setPrefs((p) => p && { ...p, preferredCategories: toggleInArray(p.preferredCategories, category) })
+                }
+                className={`rounded-full border px-3 py-1 text-xs font-semibold transition ${
+                  active ? 'border-sp-blue bg-sp-blue text-white' : 'border-black/10 text-sp-ink-2 hover:border-sp-blue'
+                }`}
+              >
+                {category}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+      <div>
+        <Label>Work mode</Label>
+        <div className="flex flex-wrap gap-2">
+          {MODE_OPTIONS.map((mode) => {
+            const active = prefs.preferredModes.includes(mode);
+            return (
+              <button
+                key={mode}
+                type="button"
+                onClick={() => setPrefs((p) => p && { ...p, preferredModes: toggleInArray(p.preferredModes, mode) })}
+                className={`rounded-full border px-3 py-1 text-xs font-semibold capitalize transition ${
+                  active ? 'border-sp-blue bg-sp-blue text-white' : 'border-black/10 text-sp-ink-2 hover:border-sp-blue'
+                }`}
+              >
+                {mode}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+      <div>
+        <Label>Full-time / part-time</Label>
+        <div className="flex flex-wrap gap-2">
+          {EMPLOYMENT_TYPE_OPTIONS.map((type) => {
+            const active = prefs.preferredEmploymentTypes.includes(type);
+            return (
+              <button
+                key={type}
+                type="button"
+                onClick={() =>
+                  setPrefs((p) => p && { ...p, preferredEmploymentTypes: toggleInArray(p.preferredEmploymentTypes, type) })
+                }
+                className={`rounded-full border px-3 py-1 text-xs font-semibold capitalize transition ${
+                  active ? 'border-sp-blue bg-sp-blue text-white' : 'border-black/10 text-sp-ink-2 hover:border-sp-blue'
+                }`}
+              >
+                {type}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+      <div>
+        <Label htmlFor="paidPreference">Paid / unpaid</Label>
+        <select
+          id="paidPreference"
+          value={prefs.paidPreference}
+          onChange={(e) => setPrefs((p) => p && { ...p, paidPreference: e.target.value as StudentPreferences['paidPreference'] })}
+          className="w-full rounded-sp-lg border border-black/10 px-3 py-2 text-sm text-sp-navy outline-none focus:border-sp-blue"
+        >
+          <option value="either">Either</option>
+          <option value="paid">Paid only</option>
+          <option value="unpaid">Unpaid is fine</option>
+        </select>
+      </div>
+      <div>
+        <Label htmlFor="availability">Availability</Label>
+        <Input
+          id="availability"
+          value={prefs.availability ?? ''}
+          onChange={(e) => setPrefs((p) => p && { ...p, availability: e.target.value })}
+          placeholder="Immediately, From June 2026, …"
+        />
+      </div>
+      <div>
+        <Label htmlFor="preferredLocations">Preferred locations (comma-separated)</Label>
+        <Input
+          id="preferredLocations"
+          value={locationsText}
+          onChange={(e) => setLocationsText(e.target.value)}
+          placeholder="Bengaluru, Remote"
+        />
+      </div>
+      <div className="sm:col-span-2">
+        <Label htmlFor="rolesOfInterest">Roles of interest (comma-separated)</Label>
+        <Input
+          id="rolesOfInterest"
+          value={rolesText}
+          onChange={(e) => setRolesText(e.target.value)}
+          placeholder="Backend Developer, Growth Marketing Intern"
+        />
+      </div>
+
+      {saved && <p className="sm:col-span-2 text-sm font-semibold text-sp-good">Preferences saved!</p>}
+
+      <div className="sm:col-span-2">
+        <Button type="submit" disabled={saving}>
+          {saving ? 'Saving…' : 'Save preferences'}
+        </Button>
+      </div>
+    </form>
+  );
+}
 
 export default function StudentRegisterPage() {
   const { user, token } = useAuth();
@@ -244,6 +413,14 @@ export default function StudentRegisterPage() {
             </a>
           </p>
         )}
+      </Card>
+
+      <Card className="mt-6 p-6">
+        <h2 className="mb-2 text-lg font-bold text-sp-navy">Preferences</h2>
+        <p className="mb-4 text-sm text-sp-ink-2">
+          Optional, but helps us surface internships that actually match what you want.
+        </p>
+        <PreferencesCard token={token} />
       </Card>
     </div>
   );

@@ -7,6 +7,7 @@ import { PaginationQueryDto } from '../../common/dto/pagination-query.dto.js';
 import { ApplicationsService } from './applications.service.js';
 import { ApplyDto } from './dto/apply.dto.js';
 import { UpdateApplicationStatusDto } from './dto/update-application-status.dto.js';
+import { AddApplicationNoteDto } from './dto/add-application-note.dto.js';
 
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Controller()
@@ -62,5 +63,21 @@ export class ApplicationsController {
     @Body() dto: UpdateApplicationStatusDto,
   ) {
     return this.applicationsService.updateStatus(id, user.sub, dto);
+  }
+
+  @Roles('employer', 'admin')
+  @Post('applications/:id/notes')
+  addNote(
+    @Param('id', ParseIntPipe) id: number,
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() dto: AddApplicationNoteDto,
+  ) {
+    return this.applicationsService.addNote(id, user, dto);
+  }
+
+  @Roles('employer', 'admin')
+  @Get('applications/:id/notes')
+  listNotes(@Param('id', ParseIntPipe) id: number, @CurrentUser() user: AuthenticatedUser) {
+    return this.applicationsService.listNotes(id, user);
   }
 }
