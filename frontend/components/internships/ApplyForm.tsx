@@ -5,8 +5,8 @@ import Link from 'next/link';
 import { useAuth } from '@/lib/auth';
 import { apiFetch, ApiError } from '@/lib/api';
 import { Button } from '@/components/ui/Button';
-import { Textarea } from '@/components/ui/Input';
-import type { ApplicationStatus } from '@/lib/types';
+import { Input, Textarea } from '@/components/ui/Input';
+import type { ApplicationStatus, ChecklistAnswer, ChecklistItem, ChecklistResponseLevel } from '@/lib/types';
 
 const STATUS_COPY: Record<ApplicationStatus, string> = {
   applied: "You've already applied to this internship.",
@@ -17,27 +17,50 @@ const STATUS_COPY: Record<ApplicationStatus, string> = {
   withdrawn: 'You withdrew your application to this internship.',
 };
 
+const LEVELS: { value: ChecklistResponseLevel; label: string }[] = [
+  { value: 'limited', label: 'Limited' },
+  { value: 'moderate', label: 'Moderate' },
+  { value: 'expert', label: 'Expert' },
+];
+
+const ANSWERS: { value: ChecklistAnswer; label: string }[] = [
+  { value: 'yes', label: 'Yes' },
+  { value: 'no', label: 'No' },
+];
+
+type ResponseValue = ChecklistResponseLevel | ChecklistAnswer | '';
+
+interface ItemResponse {
+  value: ResponseValue;
+  note: string;
+}
+
 export function ApplyForm({
   internshipId,
   checklistItems = [],
   initialApplicationStatus = null,
 }: {
   internshipId: number;
-  checklistItems?: string[];
+  checklistItems?: ChecklistItem[];
   initialApplicationStatus?: ApplicationStatus | null;
 }) {
   const { user, token } = useAuth();
   const [coverNote, setCoverNote] = useState('');
-  const [checked, setChecked] = useState<Set<string>>(new Set());
+  const [responses, setResponses] = useState<Record<string, ItemResponse>>({});
   const [status, setStatus] = useState<'idle' | 'submitting' | 'done' | 'error'>('idle');
   const [error, setError] = useState('');
 
-  const toggleChecklistItem = (item: string) => {
-    setChecked((prev) => {
-      const next = new Set(prev);
-      if (next.has(item)) next.delete(item);
-      else next.add(item);
-      return next;
+  const setValue = (item: string, value: ResponseValue) => {
+    setResponses((prev) => {
+      const current = prev[item] ?? { value: '', note: '' };
+      return { ...prev, [item]: { ...current, value } };
+    });
+  };
+
+  const setNote = (item: string, note: string) => {
+    setResponses((prev) => {
+      const current = prev[item] ?? { value: '', note: '' };
+      return { ...prev, [item]: { ...current, note } };
     });
   };
 
@@ -93,10 +116,16 @@ export function ApplyForm({
         token,
         body: {
           coverNote: coverNote || undefined,
-          checklistResponses: checklistItems.map((item) => ({
-            item,
-            met: checked.has(item),
-          })),
+          // Only send items the student actually answered — an unanswered
+          // item is omitted rather than sent with a guessed value.
+          checklistResponses: checklistItems
+            .filter((c) => responses[c.item]?.value)
+            .map((c) => ({
+              item: c.item,
+              type: c.type,
+              value: responses[c.item].value,
+              note: responses[c.item].note || undefined,
+            })),
         },
       });
       setStatus('done');
@@ -111,19 +140,42 @@ export function ApplyForm({
       {checklistItems.length > 0 && (
         <div className="rounded-sp-lg bg-sp-bg-sunken p-3">
           <p className="mb-2 text-xs font-bold uppercase tracking-wide text-sp-ink-2">
-            Before you apply, check what applies to you
+            Before you apply, answer what the employer&apos;s looking for
           </p>
-          <div className="flex flex-col gap-1.5">
-            {checklistItems.map((item) => (
-              <label key={item} className="flex items-center gap-2 text-sm text-sp-ink-2">
-                <input
-                  type="checkbox"
-                  checked={checked.has(item)}
-                  onChange={() => toggleChecklistItem(item)}
-                />
-                {item}
-              </label>
-            ))}
+          <div className="flex flex-col gap-3">
+            {checklistItems.map((c) => {
+              const options = c.type === 'yesno' ? ANSWERS : LEVELS;
+              return (
+                <div key={c.item} className="rounded-sp-md bg-white p-3">
+                  <p className="text-sm font-semibold text-sp-navy">{c.item}</p>
+                  <div className="mt-1.5 flex flex-wrap gap-1.5">
+                    {options.map((o) => {
+                      const active = responses[c.item]?.value === o.value;
+                      return (
+                        <button
+                          key={o.value}
+                          type="button"
+                          onClick={() => setValue(c.item, o.value)}
+                          className={`rounded-full border px-3 py-1 text-xs font-semibold transition ${
+                            active
+                              ? 'border-sp-blue bg-sp-blue text-white'
+                              : 'border-black/10 text-sp-ink-2 hover:border-sp-blue'
+                          }`}
+                        >
+                          {o.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <Input
+                    className="mt-2"
+                    placeholder="Add a note (optional) — e.g. built two projects using this"
+                    value={responses[c.item]?.note ?? ''}
+                    onChange={(e) => setNote(c.item, e.target.value)}
+                  />
+                </div>
+              );
+            })}
           </div>
         </div>
       )}

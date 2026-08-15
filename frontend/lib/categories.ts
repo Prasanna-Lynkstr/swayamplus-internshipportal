@@ -1,19 +1,8 @@
-// Mirrors backend/src/common/constants/categories.ts — kept in sync manually
-// since there's no shared package between the two apps yet.
-export const INTERNSHIP_CATEGORIES = [
-  'Data Analysis',
-  'Data Science',
-  'Software Development',
-  'Web Development',
-  'Digital Marketing',
-  'UI/UX Design',
-  'HR',
-  'Content Writing',
-  'Sales & Business Development',
-  'Finance & Accounting',
-  'Operations',
-  'Other',
-] as const;
+// Categories themselves are admin-managed now (GET /taxonomies/internship_category
+// via useTaxonomy('internship_category') — see lib/useTaxonomy.ts), not a
+// hardcoded array. This file keeps only the presentational helper (icon)
+// that keys off a category's value; unknown/new categories an admin adds
+// fall back to a generic icon rather than needing a code change.
 
 const CATEGORY_ICONS: Record<string, string> = {
   'Data Analysis': '📊',
@@ -32,13 +21,4 @@ const CATEGORY_ICONS: Record<string, string> = {
 
 export function categoryIcon(category: string): string {
   return CATEGORY_ICONS[category] ?? '🏷️';
-}
-
-// The 4 pastel tones from the design system's feature-card grid, cycled across
-// the category chip row so it reads as one system rather than a flat list.
-const PASTEL_CYCLE = ['yellow', 'peach', 'lavender', 'mint'] as const;
-export type PastelTone = (typeof PASTEL_CYCLE)[number];
-
-export function pastelForIndex(index: number): PastelTone {
-  return PASTEL_CYCLE[index % PASTEL_CYCLE.length];
 }

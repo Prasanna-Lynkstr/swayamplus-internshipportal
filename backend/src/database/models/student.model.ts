@@ -60,6 +60,28 @@ export class Student extends Model<InferAttributes<Student>, InferCreationAttrib
   @Attribute(DataTypes.STRING)
   declare linkedinUrl: string | null;
 
+  @Attribute(DataTypes.STRING)
+  declare githubUrl: string | null;
+
+  // Link to the student's existing My Skills Plus profile — kept as a plain
+  // URL field for now, same as linkedinUrl, not a real integration (see
+  // docs/SWAYAM_PLUS_INTEGRATION_SPEC.md OQ-13/14 for the eventual
+  // shared-identifier/taxonomy-linkage version of this).
+  @Attribute(DataTypes.STRING)
+  declare mySkillsPlusUrl: string | null;
+
+  // Profile photo — set via POST /students/me/photo, cleared via DELETE.
+  // Same "just a URL, StorageService owns the actual file" shape as
+  // resumeUrl above.
+  @Attribute(DataTypes.STRING)
+  declare photoUrl: string | null;
+
+  // Set once, on first acceptance — never overwritten by a later save, so
+  // this stays the actual consent timestamp for compliance purposes, not
+  // "whenever they last touched the profile form."
+  @Attribute(DataTypes.DATE)
+  declare acceptedTermsAt: Date | null;
+
   declare createdAt: CreationOptional<Date>;
   declare updatedAt: CreationOptional<Date>;
 }

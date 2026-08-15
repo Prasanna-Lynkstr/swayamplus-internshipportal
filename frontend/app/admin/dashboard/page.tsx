@@ -102,6 +102,7 @@ export default function AdminDashboardPage() {
                 <h3 className="mb-3 font-bold text-sp-navy">Internships by status</h3>
                 <div className="flex flex-wrap gap-2">
                   <Badge>Draft {stats.internships.draft}</Badge>
+                  <Badge tone="orange">Pending review {stats.internships.pending_review}</Badge>
                   <Badge tone="good">Published {stats.internships.published}</Badge>
                   <Badge tone="danger">Closed {stats.internships.closed}</Badge>
                   <Badge>Archived {stats.internships.archived}</Badge>

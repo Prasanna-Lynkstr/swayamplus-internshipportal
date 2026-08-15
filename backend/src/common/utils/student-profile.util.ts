@@ -2,7 +2,15 @@ import type { Student } from '../../database/models/index.js';
 
 type StudentProfileFields = Pick<
   Student,
-  'fullName' | 'phone' | 'collegeName' | 'course' | 'graduationYear' | 'city' | 'resumeUrl' | 'skills'
+  | 'fullName'
+  | 'phone'
+  | 'collegeName'
+  | 'course'
+  | 'graduationYear'
+  | 'city'
+  | 'resumeUrl'
+  | 'skills'
+  | 'acceptedTermsAt'
 >;
 
 // A Student row is created empty at OTP verification (see AuthService.verifyOtp)
@@ -23,6 +31,7 @@ export function getMissingStudentProfileFields(student: StudentProfileFields): s
   if (!student.city) missing.push('City');
   if (!student.resumeUrl) missing.push('Resume');
   if (student.skills.length === 0) missing.push('At least one skill');
+  if (!student.acceptedTermsAt) missing.push('Terms & Conditions acceptance');
   return missing;
 }
 

@@ -5,7 +5,6 @@ import { DatabaseShutdownService } from './database-shutdown.service.js';
 import {
   APPLICATION_NOTE_MODEL,
   EMPLOYER_MODEL,
-  INTEREST_REGISTRATION_MODEL,
   INTERNSHIP_APPLICATION_MODEL,
   INTERNSHIP_MODEL,
   INTERNSHIP_REQUEST_MODEL,
@@ -14,12 +13,12 @@ import {
   SEQUELIZE,
   STUDENT_MODEL,
   STUDENT_PREFERENCE_MODEL,
+  TAXONOMY_VALUE_MODEL,
   USER_MODEL,
 } from './database.constants.js';
 import {
   ApplicationNote,
   Employer,
-  InterestRegistration,
   Internship,
   InternshipApplication,
   InternshipRequest,
@@ -27,6 +26,7 @@ import {
   PlatformSetting,
   Student,
   StudentPreference,
+  TaxonomyValue,
   User,
 } from './models/index.js';
 
@@ -56,7 +56,7 @@ function modelProvider(token: string, model: unknown): Provider {
     modelProvider(INTERNSHIP_APPLICATION_MODEL, InternshipApplication),
     modelProvider(APPLICATION_NOTE_MODEL, ApplicationNote),
     modelProvider(INTERNSHIP_REQUEST_MODEL, InternshipRequest),
-    modelProvider(INTEREST_REGISTRATION_MODEL, InterestRegistration),
+    modelProvider(TAXONOMY_VALUE_MODEL, TaxonomyValue),
   ],
   exports: [
     SEQUELIZE,
@@ -70,7 +70,7 @@ function modelProvider(token: string, model: unknown): Provider {
     INTERNSHIP_APPLICATION_MODEL,
     APPLICATION_NOTE_MODEL,
     INTERNSHIP_REQUEST_MODEL,
-    INTEREST_REGISTRATION_MODEL,
+    TAXONOMY_VALUE_MODEL,
   ],
 })
 export class DatabaseModule {}

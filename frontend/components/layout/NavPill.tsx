@@ -16,7 +16,10 @@ export function NavPill() {
   const router = useRouter();
   const { user, logout } = useAuth();
   const [query, setQuery] = useState('');
-  const [darkMode, setDarkMode] = useState(false);
+  // Bookmarking is browser-local (see useSavedInternships), not tied to any
+  // role — but only makes sense for someone who'd actually apply, so it's
+  // hidden for logged-in employers/admins rather than shown to everyone.
+  const showBookmarkedLink = !user || user.role === 'student';
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -37,6 +40,16 @@ export function NavPill() {
             {link.label}
           </Link>
         ))}
+        {showBookmarkedLink && (
+          <Link
+            href="/internships/bookmarked"
+            className={`rounded-full px-4 py-2 text-sm font-semibold transition-colors hover:bg-white/15 ${
+              pathname === '/internships/bookmarked' ? 'bg-white/20' : ''
+            }`}
+          >
+            Bookmarked
+          </Link>
+        )}
       </div>
 
       <form onSubmit={handleSearch} className="ml-auto min-w-[160px] flex-1">
@@ -48,24 +61,6 @@ export function NavPill() {
           className="w-full rounded-full bg-black/15 px-4 py-2 text-sm text-white placeholder:text-white/70 focus:outline-none focus:ring-2 focus:ring-white/40"
         />
       </form>
-
-      <button
-        type="button"
-        className="rounded-full bg-white/15 px-3 py-2 text-xs font-bold"
-        aria-label="Language: English"
-      >
-        EN
-      </button>
-
-      <button
-        type="button"
-        onClick={() => setDarkMode((d) => !d)}
-        className="flex h-9 w-9 items-center justify-center rounded-full bg-white/15"
-        aria-label="Toggle dark mode"
-        title="Dark mode toggle is cosmetic in this MVP"
-      >
-        {darkMode ? '☀' : '☽'}
-      </button>
 
       {user ? (
         <div className="flex items-center gap-2">
@@ -111,13 +106,13 @@ export function NavPill() {
             href="/register/student"
             className="rounded-full bg-white/15 px-3 py-2 text-xs font-bold hover:bg-white/25"
           >
-            Student login
+            Student sign in
           </Link>
           <Link
             href="/register/employer"
             className="rounded-full bg-white px-3 py-2 text-xs font-bold text-sp-green-from hover:bg-white/90"
           >
-            Employer login
+            Employer sign in
           </Link>
         </div>
       )}

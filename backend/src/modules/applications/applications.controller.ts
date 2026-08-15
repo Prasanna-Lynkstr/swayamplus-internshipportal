@@ -8,6 +8,7 @@ import { ApplicationsService } from './applications.service.js';
 import { ApplyDto } from './dto/apply.dto.js';
 import { UpdateApplicationStatusDto } from './dto/update-application-status.dto.js';
 import { AddApplicationNoteDto } from './dto/add-application-note.dto.js';
+import { QueryApplicationsDto } from './dto/query-applications.dto.js';
 
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Controller()
@@ -50,7 +51,7 @@ export class ApplicationsController {
   findForInternship(
     @Param('id', ParseIntPipe) internshipId: number,
     @CurrentUser() user: AuthenticatedUser,
-    @Query() query: PaginationQueryDto,
+    @Query() query: QueryApplicationsDto,
   ) {
     return this.applicationsService.findForInternship(internshipId, user.sub, query);
   }
@@ -79,5 +80,11 @@ export class ApplicationsController {
   @Get('applications/:id/notes')
   listNotes(@Param('id', ParseIntPipe) id: number, @CurrentUser() user: AuthenticatedUser) {
     return this.applicationsService.listNotes(id, user);
+  }
+
+  @Roles('employer', 'admin')
+  @Get('applications/:id/applicant-profile')
+  getApplicantProfile(@Param('id', ParseIntPipe) id: number, @CurrentUser() user: AuthenticatedUser) {
+    return this.applicationsService.getApplicantProfile(id, user);
   }
 }

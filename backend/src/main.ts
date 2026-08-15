@@ -29,6 +29,14 @@ async function bootstrap() {
       // Reject requests with unexpected fields outright instead of silently
       // dropping (whitelist:true) or persisting them.
       forbidNonWhitelisted: true,
+      // One message per *field*, not one per failing decorator on that
+      // field — without this, a single missing array field (e.g.
+      // @IsArray + @ArrayNotEmpty + @IsString({each:true}) all failing on
+      // an absent value) surfaces as 2-3 near-duplicate messages, which is
+      // exactly the clutter a client trying to show a clean error list runs
+      // into. The frontend still lists every *field's* message (see
+      // FormError.tsx) — this only dedupes within one field.
+      stopAtFirstError: true,
     }),
   );
 

@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Patch,
   Post,
@@ -10,7 +11,11 @@ import {
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
-import { createMimeTypeFilter, RESUME_MIME_TYPES } from '../../common/utils/file-filter.util.js';
+import {
+  AVATAR_IMAGE_MIME_TYPES,
+  createMimeTypeFilter,
+  RESUME_MIME_TYPES,
+} from '../../common/utils/file-filter.util.js';
 import { getMissingStudentProfileFields } from '../../common/utils/student-profile.util.js';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard.js';
 import { RolesGuard } from '../../common/guards/roles.guard.js';
@@ -74,5 +79,26 @@ export class StudentsController {
       originalName: file.originalname,
       mimeType: file.mimetype,
     });
+  }
+
+  @Post('me/photo')
+  @UseInterceptors(
+    FileInterceptor('file', {
+      storage: memoryStorage(),
+      limits: { fileSize: Number(process.env.MAX_AVATAR_UPLOAD_SIZE_MB ?? 2) * 1024 * 1024 },
+      fileFilter: createMimeTypeFilter(AVATAR_IMAGE_MIME_TYPES),
+    }),
+  )
+  uploadPhoto(@CurrentUser() user: AuthenticatedUser, @UploadedFile() file: Express.Multer.File) {
+    return this.studentsService.savePhoto(user.sub, {
+      buffer: file.buffer,
+      originalName: file.originalname,
+      mimeType: file.mimetype,
+    });
+  }
+
+  @Delete('me/photo')
+  deletePhoto(@CurrentUser() user: AuthenticatedUser) {
+    return this.studentsService.deletePhoto(user.sub);
   }
 }

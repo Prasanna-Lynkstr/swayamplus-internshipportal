@@ -9,6 +9,7 @@ import { InternshipApplication, Student, StudentPreference } from '../../databas
 import type { ApplicationStatus } from '../../database/models/index.js';
 import { STORAGE_SERVICE } from '../storage/storage.constants.js';
 import type { StorageService, UploadableFile } from '../storage/storage.types.js';
+import { TaxonomiesService } from '../taxonomies/taxonomies.service.js';
 import { UpdateStudentDto } from './dto/update-student.dto.js';
 import { UpdateStudentPreferencesDto } from './dto/update-student-preferences.dto.js';
 
@@ -20,6 +21,7 @@ export class StudentsService {
     @Inject(INTERNSHIP_APPLICATION_MODEL)
     private readonly applicationModel: typeof InternshipApplication,
     @Inject(STORAGE_SERVICE) private readonly storageService: StorageService,
+    private readonly taxonomiesService: TaxonomiesService,
   ) {}
 
   async getByUserId(userId: number): Promise<Student> {
@@ -32,7 +34,11 @@ export class StudentsService {
 
   async updateByUserId(userId: number, dto: UpdateStudentDto): Promise<Student> {
     const student = await this.getByUserId(userId);
-    student.set(dto);
+    const { acceptTerms, ...profileFields } = dto;
+    student.set(profileFields);
+    if (acceptTerms && !student.acceptedTermsAt) {
+      student.acceptedTermsAt = new Date();
+    }
     await student.save();
     return student;
   }
@@ -49,8 +55,21 @@ export class StudentsService {
     userId: number,
     dto: UpdateStudentPreferencesDto,
   ): Promise<StudentPreference> {
+    await Promise.all([
+      this.taxonomiesService.assertValid('internship_category', dto.preferredCategories),
+      this.taxonomiesService.assertValid('work_mode', dto.preferredModes),
+      this.taxonomiesService.assertValid('employment_type', dto.preferredEmploymentTypes),
+      this.taxonomiesService.assertValid('paid_preference', dto.paidPreference),
+    ]);
+
     const preferences = await this.getPreferences(userId);
     preferences.set(dto);
+    // availableFrom only means something for 'available_from' — clear it
+    // for the other two statuses so a stale future date can't linger after
+    // a student switches back to actively-looking/not-looking.
+    if (preferences.availabilityStatus !== 'available_from') {
+      preferences.availableFrom = null;
+    }
     await preferences.save();
     return preferences;
   }
@@ -59,6 +78,29 @@ export class StudentsService {
     const student = await this.getByUserId(userId);
     student.resumeUrl = await this.storageService.save(file, 'resumes');
     await student.save();
+    return student;
+  }
+
+  async savePhoto(userId: number, file: UploadableFile): Promise<Student> {
+    const student = await this.getByUserId(userId);
+    const previousPhotoUrl = student.photoUrl;
+    student.photoUrl = await this.storageService.save(file, 'photos');
+    await student.save();
+    // Delete after the new URL is safely persisted, not before — a failed
+    // save should never leave a student with neither the old nor new photo.
+    if (previousPhotoUrl) {
+      await this.storageService.delete(previousPhotoUrl);
+    }
+    return student;
+  }
+
+  async deletePhoto(userId: number): Promise<Student> {
+    const student = await this.getByUserId(userId);
+    if (student.photoUrl) {
+      await this.storageService.delete(student.photoUrl);
+      student.photoUrl = null;
+      await student.save();
+    }
     return student;
   }
 

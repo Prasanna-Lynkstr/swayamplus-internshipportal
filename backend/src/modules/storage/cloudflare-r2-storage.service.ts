@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
+import { DeleteObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import * as path from 'node:path';
 import type { StorageService, UploadableFile } from './storage.types.js';
 import type { AppLogger } from '../../common/logging/app-logger.types.js';
@@ -43,5 +43,15 @@ export class CloudflareR2StorageService implements StorageService {
     );
 
     return `${this.publicUrl}/${key}`;
+  }
+
+  async delete(url: string): Promise<void> {
+    if (!url.startsWith(this.publicUrl + '/')) return;
+    const key = url.slice(this.publicUrl.length + 1);
+    try {
+      await this.client.send(new DeleteObjectCommand({ Bucket: this.bucket, Key: key }));
+    } catch (err) {
+      this.logger.warn(`Could not delete R2 object "${key}": ${(err as Error).message}`, CloudflareR2StorageService.name);
+    }
   }
 }

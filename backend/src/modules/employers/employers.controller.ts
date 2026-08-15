@@ -1,7 +1,10 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
+  Param,
+  ParseIntPipe,
   Patch,
   Post,
   UploadedFile,
@@ -11,6 +14,7 @@ import {
 import { FileInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
 import {
+  AVATAR_IMAGE_MIME_TYPES,
   createMimeTypeFilter,
   VERIFICATION_DOCUMENT_MIME_TYPES,
 } from '../../common/utils/file-filter.util.js';
@@ -32,6 +36,13 @@ export class EmployersController {
   @Get('registration-status')
   getRegistrationStatus() {
     return this.employersService.getRegistrationStatus();
+  }
+
+  // Company page — public, whitelisted fields only (see getPublicProfile).
+  @Public()
+  @Get(':id/public')
+  getPublicProfile(@Param('id', ParseIntPipe) id: number) {
+    return this.employersService.getPublicProfile(id);
   }
 
   @UseGuards(JwtAuthGuard, RolesGuard)
@@ -90,5 +101,30 @@ export class EmployersController {
       originalName: file.originalname,
       mimeType: file.mimetype,
     });
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('employer')
+  @Post('me/logo')
+  @UseInterceptors(
+    FileInterceptor('file', {
+      storage: memoryStorage(),
+      limits: { fileSize: Number(process.env.MAX_AVATAR_UPLOAD_SIZE_MB ?? 2) * 1024 * 1024 },
+      fileFilter: createMimeTypeFilter(AVATAR_IMAGE_MIME_TYPES),
+    }),
+  )
+  uploadLogo(@CurrentUser() user: AuthenticatedUser, @UploadedFile() file: Express.Multer.File) {
+    return this.employersService.saveLogo(user.sub, {
+      buffer: file.buffer,
+      originalName: file.originalname,
+      mimeType: file.mimetype,
+    });
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('employer')
+  @Delete('me/logo')
+  deleteLogo(@CurrentUser() user: AuthenticatedUser) {
+    return this.employersService.deleteLogo(user.sub);
   }
 }

@@ -6,12 +6,14 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { Op } from '@sequelize/core';
 import {
   APPLICATION_NOTE_MODEL,
   EMPLOYER_MODEL,
   INTERNSHIP_APPLICATION_MODEL,
   INTERNSHIP_MODEL,
   STUDENT_MODEL,
+  STUDENT_PREFERENCE_MODEL,
   USER_MODEL,
 } from '../../database/database.constants.js';
 import {
@@ -20,16 +22,19 @@ import {
   Internship,
   InternshipApplication,
   Student,
+  StudentPreference,
   User,
 } from '../../database/models/index.js';
 import { NotificationsService } from '../notifications/notifications.service.js';
 import type { PaginationQueryDto } from '../../common/dto/pagination-query.dto.js';
 import { resolvePagination, toPaginatedResult } from '../../common/utils/pagination.util.js';
 import { isStudentProfileComplete } from '../../common/utils/student-profile.util.js';
+import { computeChecklistMatch } from '../../common/utils/checklist-match.util.js';
 import type { AuthenticatedUser } from '../../common/decorators/current-user.decorator.js';
 import { ApplyDto } from './dto/apply.dto.js';
 import { UpdateApplicationStatusDto } from './dto/update-application-status.dto.js';
 import { AddApplicationNoteDto } from './dto/add-application-note.dto.js';
+import { QueryApplicationsDto } from './dto/query-applications.dto.js';
 
 @Injectable()
 export class ApplicationsService {
@@ -41,6 +46,7 @@ export class ApplicationsService {
     @Inject(EMPLOYER_MODEL) private readonly employerModel: typeof Employer,
     @Inject(USER_MODEL) private readonly userModel: typeof User,
     @Inject(APPLICATION_NOTE_MODEL) private readonly applicationNoteModel: typeof ApplicationNote,
+    @Inject(STUDENT_PREFERENCE_MODEL) private readonly studentPreferenceModel: typeof StudentPreference,
     private readonly notificationsService: NotificationsService,
     private readonly configService: ConfigService,
   ) {}
@@ -72,6 +78,9 @@ export class ApplicationsService {
     const internship = await this.internshipModel.findByPk(internshipId);
     if (!internship || internship.status !== 'published') {
       throw new NotFoundException('Internship not found or not accepting applications.');
+    }
+    if (internship.applicationDeadline < new Date()) {
+      throw new ForbiddenException('The application deadline for this internship has passed.');
     }
 
     const existing = await this.applicationModel.findOne({
@@ -125,7 +134,15 @@ export class ApplicationsService {
     return application;
   }
 
-  async findForInternship(internshipId: number, userId: number, query: PaginationQueryDto) {
+  // Filter/sort/matchScore are all computed over the FULL result set before
+  // paginating in memory (not pushed into SQL limit/offset) — matchScore
+  // itself only exists once checklistResponses is read, so "sort by
+  // recommended" and "page 3 of the recommended-only view" both need every
+  // matching row scored first. At this app's real scale (hundreds of
+  // applicants per listing, not tens of thousands) that's one query and an
+  // in-memory sort, the same tradeoff InternshipsService.findPublished
+  // already makes for relevance-sort.
+  async findForInternship(internshipId: number, userId: number, query: QueryApplicationsDto) {
     const employer = await this.getEmployer(userId);
     const internship = await this.internshipModel.findByPk(internshipId);
     if (!internship || internship.employerId !== employer.id) {
@@ -134,15 +151,44 @@ export class ApplicationsService {
 
     const { page, pageSize, offset } = resolvePagination(this.configService, query);
 
-    const { rows, count } = await this.applicationModel.findAndCountAll({
-      where: { internshipId },
-      include: [{ model: this.studentModel, as: 'student' }],
+    const where: Record<string, unknown> = { internshipId };
+    if (query.status) where.status = query.status;
+
+    const rows = await this.applicationModel.findAll({
+      where,
+      include: [
+        {
+          model: this.studentModel,
+          as: 'student',
+          required: true,
+          where: query.q ? { fullName: { [Op.iLike]: `%${query.q}%` } } : undefined,
+        },
+      ],
       order: [['createdAt', 'DESC']],
-      limit: pageSize,
-      offset,
     });
 
-    return toPaginatedResult(rows, count, page, pageSize);
+    let scored = rows.map((row) => ({ row, match: computeChecklistMatch(row.checklistResponses) }));
+    if (query.recommended) scored = scored.filter(({ match }) => match.recommended);
+
+    if (query.sort === 'recommended') {
+      scored.sort(
+        (a, b) =>
+          (b.match.matchScore ?? -1) - (a.match.matchScore ?? -1) ||
+          b.row.createdAt.getTime() - a.row.createdAt.getTime(),
+      );
+    } else if (query.sort === 'oldest') {
+      scored.sort((a, b) => a.row.createdAt.getTime() - b.row.createdAt.getTime());
+    }
+    // 'newest' (default) is already the order the query fetched in.
+
+    const total = scored.length;
+    const items = scored.slice(offset, offset + pageSize).map(({ row, match }) => ({
+      ...row.get({ plain: true }),
+      matchScore: match.matchScore,
+      recommended: match.recommended,
+    }));
+
+    return toPaginatedResult(items, total, page, pageSize);
   }
 
   async updateStatus(
@@ -200,6 +246,37 @@ export class ApplicationsService {
       }
     }
     return application;
+  }
+
+  // Everything an employer needs to actually decide on an applicant — the
+  // list row alone (name + status badge) isn't enough to shortlist/reject
+  // against. Reuses getApplicationForNotes' ownership check even though
+  // this isn't about notes — it's exactly the right "own listing or admin"
+  // gate for any per-applicant deep-dive, not just the notes feature.
+  async getApplicantProfile(applicationId: number, user: AuthenticatedUser) {
+    const application = await this.getApplicationForNotes(applicationId, user);
+    const student = await this.studentModel.findByPk(application.studentId);
+    if (!student) {
+      throw new NotFoundException('Student profile not found.');
+    }
+    const preferences = await this.studentPreferenceModel.findOne({
+      where: { studentId: student.id },
+    });
+    const match = computeChecklistMatch(application.checklistResponses);
+
+    return {
+      student: student.get({ plain: true }),
+      preferences: preferences ? preferences.get({ plain: true }) : null,
+      application: {
+        id: application.id,
+        coverNote: application.coverNote,
+        checklistResponses: application.checklistResponses,
+        status: application.status,
+        createdAt: application.createdAt,
+        matchScore: match.matchScore,
+        recommended: match.recommended,
+      },
+    };
   }
 
   async addNote(

@@ -16,4 +16,19 @@ export class LocalDiskStorageService implements StorageService {
 
     return `/uploads/${folder}/${filename}`;
   }
+
+  async delete(url: string): Promise<void> {
+    if (!url.startsWith('/uploads/')) return;
+    const relative = url.slice('/uploads/'.length);
+    const resolved = path.resolve(uploadsRoot, relative);
+    // Refuse to delete anything outside the uploads root — defense in depth
+    // against a malformed/tampered URL, even though every caller today only
+    // ever passes back a URL this same service generated.
+    if (!resolved.startsWith(uploadsRoot + path.sep)) return;
+    try {
+      await fs.unlink(resolved);
+    } catch (err) {
+      if ((err as NodeJS.ErrnoException).code !== 'ENOENT') throw err;
+    }
+  }
 }

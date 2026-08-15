@@ -12,7 +12,7 @@ import {
 } from '@sequelize/core/decorators-legacy';
 import { Student } from './student.model.js';
 
-export type PaidPreference = 'paid' | 'unpaid' | 'either';
+export type AvailabilityStatus = 'actively_looking' | 'not_looking' | 'available_from';
 
 // First-class preference fields (type/location/mode/FT-PT/paid-unpaid/roles-of-
 // interest/availability), kept as their own table rather than columns bolted
@@ -56,10 +56,10 @@ export class StudentPreference extends Model<
   @Default([])
   declare preferredEmploymentTypes: CreationOptional<string[]>;
 
-  @Attribute(DataTypes.ENUM('paid', 'unpaid', 'either'))
+  @Attribute(DataTypes.STRING)
   @NotNull
   @Default('either')
-  declare paidPreference: CreationOptional<PaidPreference>;
+  declare paidPreference: CreationOptional<string>;
 
   // Free-text job roles/titles of interest (e.g. "Backend Developer") —
   // distinct from preferredCategories, which is the closed taxonomy.
@@ -67,10 +67,18 @@ export class StudentPreference extends Model<
   @Default([])
   declare rolesOfInterest: CreationOptional<string[]>;
 
-  // Free text rather than a strict date range — "Immediately",
-  // "From June 2026", "Weekends only" all need to fit here.
-  @Attribute(DataTypes.STRING)
-  declare availability: string | null;
+  // Workflow-shaped, not a content taxonomy (the 'available_from' value
+  // requires a paired date + range validation — see UpdateStudentPreferencesDto
+  // — so this stays a code-level enum, same reasoning as educationLevel/
+  // stream on Internship, not an admin-managed taxonomy_values list).
+  @Attribute(DataTypes.ENUM('actively_looking', 'not_looking', 'available_from'))
+  declare availabilityStatus: AvailabilityStatus | null;
+
+  // Only meaningful when availabilityStatus === 'available_from' — cleared
+  // to null otherwise by StudentsService.updatePreferences, so stale future
+  // dates don't linger after a student switches back to actively-looking.
+  @Attribute(DataTypes.DATEONLY)
+  declare availableFrom: string | null;
 
   declare createdAt: CreationOptional<Date>;
   declare updatedAt: CreationOptional<Date>;

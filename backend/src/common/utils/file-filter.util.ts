@@ -35,3 +35,7 @@ export const RESUME_MIME_TYPES = [
   'application/msword',
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
 ] as const;
+
+// Raster formats only — no SVG, which can carry embedded scripts and is a
+// real XSS vector on unmoderated user uploads.
+export const AVATAR_IMAGE_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp'] as const;

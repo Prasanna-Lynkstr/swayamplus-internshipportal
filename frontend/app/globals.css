@@ -19,6 +19,7 @@
   --sp-bg-sunken: #f6f1e9;
 
   --sp-good: #299236;
+  --sp-good-ink: #1e6e2a;
   --sp-good-soft: #cff8cf;
   --sp-danger: #d73337;
   --sp-danger-soft: #ffe0dc;
@@ -49,6 +50,7 @@
   --color-sp-bg-elev: var(--sp-bg-elev);
   --color-sp-bg-sunken: var(--sp-bg-sunken);
   --color-sp-good: var(--sp-good);
+  --color-sp-good-ink: var(--sp-good-ink);
   --color-sp-good-soft: var(--sp-good-soft);
   --color-sp-danger: var(--sp-danger);
   --color-sp-danger-soft: var(--sp-danger-soft);
@@ -86,4 +88,51 @@ body {
 
 .sp-nav-pill {
   background: linear-gradient(90deg, var(--sp-green-from) 0%, var(--sp-green-to) 100%);
+}
+
+/* Shared green brand gradient — same stops as .sp-nav-pill, reused on the
+   landing page's closing CTA band so the two brand-green surfaces on the
+   page (nav + CTA) read as the same signature treatment. */
+.sp-green-gradient {
+  background: linear-gradient(120deg, var(--sp-green-from) 0%, var(--sp-green-to) 100%);
+}
+
+/* Soft radial mesh behind the homepage hero, built only from brand tokens
+   (orange/green/blue) rather than a generic purple-blue gradient. */
+.sp-hero-mesh {
+  background:
+    radial-gradient(560px 420px at 14% 18%, color-mix(in srgb, var(--sp-green-to) 20%, transparent), transparent 65%),
+    radial-gradient(620px 460px at 82% 6%, color-mix(in srgb, var(--sp-orange) 22%, transparent), transparent 60%),
+    radial-gradient(500px 400px at 60% 60%, color-mix(in srgb, var(--sp-blue) 12%, transparent), transparent 65%);
+  filter: blur(10px);
+}
+
+@keyframes sp-float {
+  0%, 100% { transform: translateY(0) rotate(var(--sp-float-r, 0deg)); }
+  50% { transform: translateY(-10px) rotate(var(--sp-float-r, 0deg)); }
+}
+.animate-sp-float {
+  animation: sp-float 7s ease-in-out infinite;
+}
+
+@keyframes sp-pulse-ring {
+  0% { transform: scale(0.6); opacity: 0.5; }
+  100% { transform: scale(2.2); opacity: 0; }
+}
+.sp-pulse-dot {
+  position: relative;
+}
+.sp-pulse-dot::after {
+  content: '';
+  position: absolute;
+  inset: -4px;
+  border-radius: 9999px;
+  background: currentColor;
+  opacity: 0.35;
+  animation: sp-pulse-ring 2s ease-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-sp-float { animation: none; }
+  .sp-pulse-dot::after { animation: none; }
 }

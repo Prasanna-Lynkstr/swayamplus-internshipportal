@@ -17,11 +17,11 @@ import { OptionalJwtAuthGuard } from '../../common/guards/optional-jwt-auth.guar
 import { RolesGuard } from '../../common/guards/roles.guard.js';
 import { Roles } from '../../common/decorators/roles.decorator.js';
 import { CurrentUser, type AuthenticatedUser } from '../../common/decorators/current-user.decorator.js';
-import { PaginationQueryDto } from '../../common/dto/pagination-query.dto.js';
 import { InternshipsService } from './internships.service.js';
 import { CreateInternshipDto } from './dto/create-internship.dto.js';
 import { UpdateInternshipDto } from './dto/update-internship.dto.js';
 import { QueryInternshipsDto } from './dto/query-internships.dto.js';
+import { QueryMineInternshipsDto } from './dto/query-mine-internships.dto.js';
 import { GenerateChecklistDto } from './dto/generate-checklist.dto.js';
 
 @Controller('internships')
@@ -35,16 +35,18 @@ export class InternshipsController {
     return this.internshipsService.create(user.sub, dto);
   }
 
-  @Public()
+  // Publicly reachable but auth-aware — a student's skills (if any) drive
+  // the default relevance ranking, see InternshipsService.findPublished.
+  @UseGuards(OptionalJwtAuthGuard)
   @Get()
-  findPublished(@Query() query: QueryInternshipsDto) {
-    return this.internshipsService.findPublished(query);
+  findPublished(@Query() query: QueryInternshipsDto, @CurrentUser() user: AuthenticatedUser | null) {
+    return this.internshipsService.findPublished(query, user);
   }
 
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('employer')
   @Get('mine')
-  findMine(@CurrentUser() user: AuthenticatedUser, @Query() query: PaginationQueryDto) {
+  findMine(@CurrentUser() user: AuthenticatedUser, @Query() query: QueryMineInternshipsDto) {
     return this.internshipsService.findMine(user.sub, query);
   }
 
@@ -103,6 +105,13 @@ export class InternshipsController {
   @Patch(':id/close')
   close(@Param('id', ParseIntPipe) id: number, @CurrentUser() user: AuthenticatedUser) {
     return this.internshipsService.close(id, user.sub);
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('employer')
+  @Patch(':id/withdraw-review')
+  withdrawFromReview(@Param('id', ParseIntPipe) id: number, @CurrentUser() user: AuthenticatedUser) {
+    return this.internshipsService.withdrawFromReview(id, user.sub);
   }
 
   @UseGuards(JwtAuthGuard, RolesGuard)

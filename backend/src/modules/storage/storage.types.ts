@@ -12,4 +12,12 @@ export interface UploadableFile {
 export interface StorageService {
   /** Persists the file under `folder` and returns a URL clients can fetch it from. */
   save(file: UploadableFile, folder: string): Promise<string>;
+
+  /**
+   * Removes a previously-saved file given the URL `save()` returned.
+   * Best-effort: swallows "already gone" errors so a stale/edited URL never
+   * blocks the caller's own state update (e.g. clearing a profile field
+   * whose file was already removed some other way).
+   */
+  delete(url: string): Promise<void>;
 }

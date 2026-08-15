@@ -8,6 +8,8 @@ import { VerifyEmployerDto } from './dto/verify-employer.dto.js';
 import { QueryAdminInternshipsDto } from './dto/query-admin-internships.dto.js';
 import { QueryAdminEmployersDto } from './dto/query-admin-employers.dto.js';
 import { QueryAdminStudentsDto } from './dto/query-admin-students.dto.js';
+import { ModerateInternshipDto } from './dto/moderate-internship.dto.js';
+import { UpdateEmployerModerationDto } from './dto/update-employer-moderation.dto.js';
 
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles('admin')
@@ -30,9 +32,12 @@ export class AdminController {
     return this.adminService.updateSettings(dto);
   }
 
+  // Kept at the old 'pending' path for URL stability even though the
+  // `status` query param now makes this list any/all employers, not just
+  // pending ones — the default frontend call still passes status=pending.
   @Get('employers/pending')
-  getPendingEmployers(@Query() query: QueryAdminEmployersDto) {
-    return this.adminService.getPendingEmployers(query);
+  getEmployers(@Query() query: QueryAdminEmployersDto) {
+    return this.adminService.getEmployers(query);
   }
 
   @Patch('employers/:id/verify')
@@ -40,9 +45,22 @@ export class AdminController {
     return this.adminService.verifyEmployer(id, dto);
   }
 
+  @Patch('employers/:id/moderation')
+  setEmployerModerationMode(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: UpdateEmployerModerationDto,
+  ) {
+    return this.adminService.setEmployerModerationMode(id, dto);
+  }
+
   @Get('internships')
   getAllInternships(@Query() query: QueryAdminInternshipsDto) {
     return this.adminService.getAllInternships(query);
+  }
+
+  @Patch('internships/:id/moderate')
+  moderateInternship(@Param('id', ParseIntPipe) id: number, @Body() dto: ModerateInternshipDto) {
+    return this.adminService.moderateInternship(id, dto);
   }
 
   @Get('students')

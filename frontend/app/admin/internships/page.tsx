@@ -8,14 +8,9 @@ import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Input, Select } from '@/components/ui/Input';
-import type { Internship, InternshipStatus, PaginatedResult } from '@/lib/types';
-
-const STATUS_TONE: Record<InternshipStatus, 'orange' | 'good' | 'danger' | 'neutral'> = {
-  draft: 'neutral',
-  published: 'good',
-  closed: 'danger',
-  archived: 'neutral',
-};
+import { ConfirmToast } from '@/components/ui/ConfirmToast';
+import { INTERNSHIP_STATUS_TONE, STATUS_TONE_BORDER, internshipStatusLabel } from '@/lib/status-labels';
+import type { Internship, PaginatedResult } from '@/lib/types';
 
 const EMPTY_RESULT: PaginatedResult<Internship> = {
   items: [],
@@ -33,23 +28,53 @@ export default function AdminInternshipsPage() {
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [pendingReject, setPendingReject] = useState<Internship | null>(null);
+  const [rejectBusy, setRejectBusy] = useState(false);
 
-  useEffect(() => {
+  const load = () => {
     if (!token) return;
     setLoading(true);
     setError('');
+    const params = new URLSearchParams({ page: String(page) });
+    if (status) params.set('status', status);
+    if (q) params.set('q', q);
+    apiFetch<PaginatedResult<Internship>>(`/admin/internships?${params.toString()}`, { token })
+      .then(setResult)
+      .catch(() => setError('Could not load internships. Please refresh the page.'))
+      .finally(() => setLoading(false));
+  };
+
+  useEffect(() => {
+    if (!token) return;
     // Debounced so typing a search term doesn't fire a request per keystroke.
-    const timeout = setTimeout(() => {
-      const params = new URLSearchParams({ page: String(page) });
-      if (status) params.set('status', status);
-      if (q) params.set('q', q);
-      apiFetch<PaginatedResult<Internship>>(`/admin/internships?${params.toString()}`, { token })
-        .then(setResult)
-        .catch(() => setError('Could not load internships. Please refresh the page.'))
-        .finally(() => setLoading(false));
-    }, 300);
+    const timeout = setTimeout(load, 300);
     return () => clearTimeout(timeout);
   }, [token, status, q, page]);
+
+  const moderate = async (internshipId: number, decision: 'approved' | 'rejected') => {
+    setError('');
+    try {
+      await apiFetch(`/admin/internships/${internshipId}/moderate`, {
+        method: 'PATCH',
+        token,
+        body: { decision },
+      });
+      load();
+    } catch {
+      setError('Could not update this internship. Please try again.');
+    }
+  };
+
+  const confirmReject = async () => {
+    if (!pendingReject) return;
+    setRejectBusy(true);
+    try {
+      await moderate(pendingReject.id, 'rejected');
+    } finally {
+      setRejectBusy(false);
+      setPendingReject(null);
+    }
+  };
 
   return (
     <div className="flex flex-col gap-8">
@@ -76,6 +101,7 @@ export default function AdminInternshipsPage() {
           >
             <option value="">All statuses</option>
             <option value="draft">Draft</option>
+            <option value="pending_review">Pending review</option>
             <option value="published">Published</option>
             <option value="closed">Closed</option>
             <option value="archived">Archived</option>
@@ -102,11 +128,16 @@ export default function AdminInternshipsPage() {
       ) : (
         <div className="flex flex-col gap-4">
           {result.items.map((internship) => (
-            <Card key={internship.id} className="flex flex-wrap items-center justify-between gap-4 p-6">
+            <Card
+              key={internship.id}
+              className={`flex flex-wrap items-center justify-between gap-4 p-6 ${STATUS_TONE_BORDER[INTERNSHIP_STATUS_TONE[internship.status]]}`}
+            >
               <div>
                 <div className="mb-1 flex items-center gap-2">
                   <h3 className="font-bold text-sp-navy">{internship.title}</h3>
-                  <Badge tone={STATUS_TONE[internship.status]}>{internship.status}</Badge>
+                  <Badge tone={INTERNSHIP_STATUS_TONE[internship.status]}>
+                    {internshipStatusLabel(internship.status)}
+                  </Badge>
                 </div>
                 <p className="text-sm text-sp-ink-3">
                   {internship.employer?.organizationName ?? 'Unknown employer'}
@@ -120,6 +151,14 @@ export default function AdminInternshipsPage() {
                   {new Date(internship.applicationDeadline).toLocaleDateString('en-IN')}
                 </p>
               </div>
+              {internship.status === 'pending_review' && (
+                <div className="flex gap-2">
+                  <Button variant="secondary" onClick={() => setPendingReject(internship)}>
+                    Reject
+                  </Button>
+                  <Button onClick={() => moderate(internship.id, 'approved')}>Approve</Button>
+                </div>
+              )}
             </Card>
           ))}
         </div>
@@ -145,6 +184,17 @@ export default function AdminInternshipsPage() {
             Next →
           </Button>
         </div>
+      )}
+
+      {pendingReject && (
+        <ConfirmToast
+          message={`Reject "${pendingReject.title}"?`}
+          confirmLabel="Reject"
+          danger
+          busy={rejectBusy}
+          onConfirm={confirmReject}
+          onCancel={() => setPendingReject(null)}
+        />
       )}
     </div>
   );

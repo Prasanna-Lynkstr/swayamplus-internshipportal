@@ -18,6 +18,7 @@ import {
 import { User } from './user.model.js';
 
 export type EmployerVerificationStatus = 'pending' | 'approved' | 'rejected';
+export type EmployerModerationMode = 'auto_publish' | 'review';
 
 // EOI-based onboarding: a single expression-of-interest submission (reason
 // for EOI, CIN, Certificate of Incorporation, headcount, LinkedIn business
@@ -41,6 +42,14 @@ export class Employer extends Model<InferAttributes<Employer>, InferCreationAttr
 
   @Attribute(DataTypes.STRING)
   declare organizationName: string | null;
+
+  // Who the admin team actually reaches out to for verification/onboarding
+  // questions — an org name alone isn't a way to contact anyone.
+  @Attribute(DataTypes.STRING)
+  declare contactPersonName: string | null;
+
+  @Attribute(DataTypes.STRING)
+  declare contactPersonPhone: string | null;
 
   @Attribute(DataTypes.TEXT)
   declare reasonForEoi: string | null;
@@ -78,6 +87,19 @@ export class Employer extends Model<InferAttributes<Employer>, InferCreationAttr
   @NotNull
   @Default('pending')
   declare verificationStatus: CreationOptional<EmployerVerificationStatus>;
+
+  // Admin-set, per-employer: whether this employer's postings go straight to
+  // 'published' on publish, or first sit in 'pending_review' for an admin
+  // decision. Default matches the platform-wide default (auto-publish).
+  @Attribute(DataTypes.ENUM('auto_publish', 'review'))
+  @NotNull
+  @Default('auto_publish')
+  declare moderationMode: CreationOptional<EmployerModerationMode>;
+
+  // Set once, at EOI submission — never overwritten by a later edit, so this
+  // stays the actual consent timestamp for compliance purposes.
+  @Attribute(DataTypes.DATE)
+  declare acceptedTermsAt: Date | null;
 
   declare createdAt: CreationOptional<Date>;
   declare updatedAt: CreationOptional<Date>;

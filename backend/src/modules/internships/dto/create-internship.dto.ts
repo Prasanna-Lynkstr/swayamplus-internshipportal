@@ -1,5 +1,7 @@
+import { Type } from 'class-transformer';
 import {
   IsArray,
+  IsBoolean,
   IsIn,
   IsInt,
   IsISO8601,
@@ -7,13 +9,39 @@ import {
   IsString,
   Max,
   Min,
+  ValidateNested,
 } from 'class-validator';
-import type { EmploymentType, InternshipMode, ScheduleType } from '../../../database/models/index.js';
-import { INTERNSHIP_CATEGORIES, type InternshipCategory } from '../../../common/constants/categories.js';
 import { MaxDaysFromNow } from '../../../common/decorators/max-days-from-now.decorator.js';
+import type { ChecklistItemType, EducationLevel, Stream } from '../../../database/models/index.js';
 
 const MAX_DEADLINE_DAYS_OUT = 90;
+const EDUCATION_LEVELS: EducationLevel[] = ['Any', 'UG', 'PG', 'Other'];
+const STREAMS: Stream[] = [
+  'Any',
+  'Engineering',
+  'Management',
+  'Arts',
+  'Commerce',
+  'Science',
+  'Law',
+  'Medical',
+  'Other',
+];
+const CHECKLIST_ITEM_TYPES: ChecklistItemType[] = ['rating', 'yesno'];
 
+class ChecklistItemDto {
+  @IsString()
+  item!: string;
+
+  @IsIn(CHECKLIST_ITEM_TYPES)
+  type!: ChecklistItemType;
+}
+
+// category/mode/employmentType/scheduleType are validated against their
+// active taxonomy in InternshipsService (TaxonomiesService.assertValid), not
+// a hardcoded @IsIn — see common/constants/taxonomies.ts. educationLevel/
+// stream are plain code-level enums instead (see internship.model.ts) —
+// required on every new posting, unlike the nullable-for-legacy-rows column.
 export class CreateInternshipDto {
   @IsString()
   title!: string;
@@ -26,15 +54,15 @@ export class CreateInternshipDto {
   @IsString({ each: true })
   skillTags?: string[];
 
-  @IsIn(INTERNSHIP_CATEGORIES)
-  category!: InternshipCategory;
+  @IsString()
+  category!: string;
 
-  @IsIn(['remote', 'onsite', 'hybrid'])
-  mode!: InternshipMode;
+  @IsString()
+  mode!: string;
 
   @IsOptional()
-  @IsIn(['full-time', 'part-time'])
-  employmentType?: EmploymentType;
+  @IsString()
+  employmentType?: string;
 
   @IsOptional()
   @IsString()
@@ -51,8 +79,8 @@ export class CreateInternshipDto {
   workingDays?: number;
 
   @IsOptional()
-  @IsIn(['flexible', 'fixed'])
-  scheduleType?: ScheduleType;
+  @IsString()
+  scheduleType?: string;
 
   @IsOptional()
   @IsInt()
@@ -79,10 +107,20 @@ export class CreateInternshipDto {
   @IsString({ each: true })
   eligibility?: string[];
 
+  @IsIn(EDUCATION_LEVELS)
+  educationLevel!: EducationLevel;
+
+  @IsIn(STREAMS)
+  stream!: Stream;
+
+  @IsBoolean()
+  experienceRequired!: boolean;
+
   @IsOptional()
   @IsArray()
-  @IsString({ each: true })
-  checklistItems?: string[];
+  @ValidateNested({ each: true })
+  @Type(() => ChecklistItemDto)
+  checklistItems?: ChecklistItemDto[];
 
   @IsOptional()
   @IsInt()

@@ -18,6 +18,10 @@ export interface Student {
   skills: string[];
   resumeUrl: string | null;
   linkedinUrl: string | null;
+  githubUrl: string | null;
+  mySkillsPlusUrl: string | null;
+  photoUrl: string | null;
+  acceptedTermsAt: string | null;
   user?: { identifier: string };
   /** Only present on the GET /students/me response. */
   profileComplete?: boolean;
@@ -26,11 +30,14 @@ export interface Student {
 }
 
 export type EmployerVerificationStatus = 'pending' | 'approved' | 'rejected';
+export type EmployerModerationMode = 'auto_publish' | 'review';
 
 export interface Employer {
   id: number;
   userId: number;
   organizationName: string | null;
+  contactPersonName: string | null;
+  contactPersonPhone: string | null;
   reasonForEoi: string | null;
   cin: string | null;
   certificateOfIncorporationUrl: string | null;
@@ -42,6 +49,8 @@ export interface Employer {
   hqCity: string | null;
   industryTags: string[];
   verificationStatus: EmployerVerificationStatus;
+  moderationMode: EmployerModerationMode;
+  acceptedTermsAt: string | null;
   user?: { identifier: string };
   /** Only present on the GET /employers/me response. */
   profileComplete?: boolean;
@@ -49,7 +58,24 @@ export interface Employer {
   missingFields?: string[];
 }
 
-export type PaidPreference = 'paid' | 'unpaid' | 'either';
+// GET /employers/:id/public — a narrow whitelist, not the full Employer shape.
+// Only ever returned for an approved employer (see EmployersService.getPublicProfile).
+export interface PublicEmployerProfile {
+  id: number;
+  organizationName: string | null;
+  website: string | null;
+  logoUrl: string | null;
+  hqCity: string | null;
+  industryTags: string[];
+  headcount: number | null;
+  internshipTypesExpected: string[];
+  linkedinBusinessPage: string | null;
+}
+
+// paidPreference/mode/employmentType/scheduleType below are admin-managed
+// taxonomy values (see lib/useTaxonomy.ts), not fixed unions — a plain
+// string, validated server-side against the active taxonomy.
+export type AvailabilityStatus = 'actively_looking' | 'not_looking' | 'available_from';
 
 export interface StudentPreferences {
   id: number;
@@ -58,15 +84,28 @@ export interface StudentPreferences {
   preferredLocations: string[];
   preferredModes: string[];
   preferredEmploymentTypes: string[];
-  paidPreference: PaidPreference;
+  paidPreference: string;
   rolesOfInterest: string[];
-  availability: string | null;
+  availabilityStatus: AvailabilityStatus | null;
+  // Only meaningful when availabilityStatus === 'available_from'.
+  availableFrom: string | null;
 }
 
-export type InternshipMode = 'remote' | 'onsite' | 'hybrid';
-export type InternshipStatus = 'draft' | 'published' | 'closed' | 'archived';
-export type EmploymentType = 'full-time' | 'part-time';
-export type ScheduleType = 'flexible' | 'fixed';
+export type InternshipStatus = 'draft' | 'pending_review' | 'published' | 'closed' | 'archived';
+// 'Any' is a real, deliberate value an employer picks meaning "I don't care
+// about this axis" — matched against every filter value on the discovery
+// side (see InternshipsService.findPublished), not the same as null/unset.
+export type EducationLevel = 'UG' | 'PG' | 'Other' | 'Any';
+export type Stream =
+  | 'Engineering'
+  | 'Management'
+  | 'Arts'
+  | 'Commerce'
+  | 'Science'
+  | 'Law'
+  | 'Medical'
+  | 'Other'
+  | 'Any';
 
 export interface Internship {
   id: number;
@@ -75,18 +114,21 @@ export interface Internship {
   description: string;
   skillTags: string[];
   category: string;
-  mode: InternshipMode;
-  employmentType: EmploymentType;
+  mode: string;
+  employmentType: string;
   location: string | null;
   durationWeeks: number;
   workingDays: number;
-  scheduleType: ScheduleType;
+  scheduleType: string;
   stipendMin: number | null;
   stipendMax: number | null;
   responsibilities: string[];
   perks: string[];
   eligibility: string[];
-  checklistItems: string[];
+  educationLevel: EducationLevel | null;
+  stream: Stream | null;
+  experienceRequired: boolean;
+  checklistItems: ChecklistItem[];
   openings: number;
   applicationDeadline: string;
   status: InternshipStatus;
@@ -94,6 +136,14 @@ export interface Internship {
   employer?: Employer;
   /** Present on GET /internships/:id and GET /internships/mine. */
   applicationsCount?: number;
+  /** Present on GET /internships/mine — applications still sitting at 'applied'. */
+  pendingReviewCount?: number;
+  /** Present on GET /internships/mine. */
+  shortlistedCount?: number;
+  /** Present on GET /internships/mine. */
+  offeredCount?: number;
+  /** Present on GET /internships when the requester is an authenticated student. */
+  appliedByCurrentUser?: boolean;
 }
 
 export type ApplicationStatus =
@@ -104,9 +154,27 @@ export type ApplicationStatus =
   | 'rejected'
   | 'withdrawn';
 
+// A 'rating' item asks the student to self-rate (limited/moderate/expert);
+// a 'yesno' item is a plain confirmation question (e.g. "Can you work 6
+// days a week?") that doesn't fit a skill-level scale. Set per item by the
+// employer — see components/employer/InternshipForm.tsx.
+export type ChecklistItemType = 'rating' | 'yesno';
+
+export interface ChecklistItem {
+  item: string;
+  type: ChecklistItemType;
+}
+
+// Matches the product spec's original limited/moderate/expert scale — see
+// backend/src/database/models/internship-application.model.ts.
+export type ChecklistResponseLevel = 'limited' | 'moderate' | 'expert';
+export type ChecklistAnswer = 'yes' | 'no';
+
 export interface ChecklistResponse {
   item: string;
-  met: boolean;
+  type: ChecklistItemType;
+  value: ChecklistResponseLevel | ChecklistAnswer;
+  note?: string | null;
 }
 
 export interface InternshipApplication {
@@ -119,6 +187,10 @@ export interface InternshipApplication {
   createdAt: string;
   internship?: Internship;
   student?: Student;
+  /** Present on GET /internships/:id/applications — 0-100, or null with no checklist responses. */
+  matchScore?: number | null;
+  /** Present on GET /internships/:id/applications — matchScore >= 70. */
+  recommended?: boolean;
 }
 
 export interface ApplicationNote {
@@ -128,6 +200,22 @@ export interface ApplicationNote {
   note: string;
   createdAt: string;
   author?: { identifier: string; role: UserRole };
+}
+
+// GET /applications/:id/applicant-profile — everything an employer needs to
+// evaluate one applicant, bundled in one call.
+export interface ApplicantProfile {
+  student: Student;
+  preferences: StudentPreferences | null;
+  application: {
+    id: number;
+    coverNote: string | null;
+    checklistResponses: ChecklistResponse[];
+    status: ApplicationStatus;
+    createdAt: string;
+    matchScore: number | null;
+    recommended: boolean;
+  };
 }
 
 export interface PaginatedResult<T> {
@@ -160,15 +248,37 @@ export interface AdminDashboardStats {
     rejected: number;
     newLast7Days: number;
   };
-  internships: { total: number; draft: number; published: number; closed: number; archived: number };
+  internships: {
+    total: number;
+    draft: number;
+    pending_review: number;
+    published: number;
+    closed: number;
+    archived: number;
+  };
   applications: { total: number };
   internshipRequests: { total: number };
   employerRegistrationOpen: boolean;
 }
 
 export interface EmployerDashboardStats {
-  internships: { total: number; draft: number; published: number; closed: number; archived: number };
-  applications: { total: number; pendingReview: number };
+  internships: {
+    total: number;
+    draft: number;
+    pending_review: number;
+    published: number;
+    closed: number;
+    archived: number;
+  };
+  applications: {
+    total: number;
+    pendingReview: number;
+    shortlisted: number;
+    interviewing: number;
+    offered: number;
+    rejected: number;
+    withdrawn: number;
+  };
   verificationStatus: EmployerVerificationStatus;
 }
 
@@ -182,16 +292,6 @@ export interface StudentDashboardStats {
     rejected: number;
     withdrawn: number;
   };
-}
-
-export interface InterestRegistration {
-  id: number;
-  fullName: string;
-  email: string;
-  phone: string | null;
-  areaOfInterest: string | null;
-  notes: string | null;
-  createdAt: string;
 }
 
 export interface InternshipRequest {

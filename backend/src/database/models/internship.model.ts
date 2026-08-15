@@ -15,12 +15,37 @@ import {
   Table,
 } from '@sequelize/core/decorators-legacy';
 import { Employer } from './employer.model.js';
-import { INTERNSHIP_CATEGORIES, type InternshipCategory } from '../../common/constants/categories.js';
 
-export type InternshipMode = 'remote' | 'onsite' | 'hybrid';
-export type InternshipStatus = 'draft' | 'published' | 'closed' | 'archived';
-export type EmploymentType = 'full-time' | 'part-time';
-export type ScheduleType = 'flexible' | 'fixed';
+// category/mode/employmentType/scheduleType are admin-managed content
+// taxonomies (see common/constants/taxonomies.ts + TaxonomiesService) — plain
+// strings validated against `taxonomy_values` at the app layer, not DB enums.
+// `status` stays a real Postgres ENUM: it's a workflow state machine the code
+// branches on (visibility rules, publish/close transitions), not a taxonomy.
+// `pending_review` sits between draft and published — only reachable when the
+// owning employer's moderationMode is 'review' (see Employer.moderationMode).
+export type InternshipStatus = 'draft' | 'pending_review' | 'published' | 'closed' | 'archived';
+
+// educationLevel/stream are code-level enums (not admin-managed taxonomies —
+// unlike category/mode/etc., these were scoped out of Phase 0's taxonomy
+// work, see docs/V1_RELEASE_SPEC.md §14). Nullable: existing postings
+// predate these fields and have no safe default to backfill; new postings
+// are required to set them (see CreateInternshipDto). 'Any' is a real,
+// explicit value (not the same as null/unset) meaning the employer
+// deliberately doesn't care about this axis — InternshipsService.findPublished
+// matches it against every education-level/stream filter a student picks.
+export type ChecklistItemType = 'rating' | 'yesno';
+
+export type EducationLevel = 'UG' | 'PG' | 'Other' | 'Any';
+export type Stream =
+  | 'Engineering'
+  | 'Management'
+  | 'Arts'
+  | 'Commerce'
+  | 'Science'
+  | 'Law'
+  | 'Medical'
+  | 'Other'
+  | 'Any';
 
 @Table({
   tableName: 'internships',
@@ -54,18 +79,18 @@ export class Internship extends Model<
   @Default([])
   declare skillTags: CreationOptional<string[]>;
 
-  @Attribute(DataTypes.ENUM(...INTERNSHIP_CATEGORIES))
+  @Attribute(DataTypes.STRING)
   @NotNull
-  declare category: InternshipCategory;
+  declare category: string;
 
-  @Attribute(DataTypes.ENUM('remote', 'onsite', 'hybrid'))
+  @Attribute(DataTypes.STRING)
   @NotNull
-  declare mode: InternshipMode;
+  declare mode: string;
 
-  @Attribute(DataTypes.ENUM('full-time', 'part-time'))
+  @Attribute(DataTypes.STRING)
   @NotNull
   @Default('full-time')
-  declare employmentType: CreationOptional<EmploymentType>;
+  declare employmentType: CreationOptional<string>;
 
   @Attribute(DataTypes.STRING)
   declare location: string | null;
@@ -79,10 +104,10 @@ export class Internship extends Model<
   @Default(5)
   declare workingDays: CreationOptional<number>;
 
-  @Attribute(DataTypes.ENUM('flexible', 'fixed'))
+  @Attribute(DataTypes.STRING)
   @NotNull
   @Default('flexible')
-  declare scheduleType: CreationOptional<ScheduleType>;
+  declare scheduleType: CreationOptional<string>;
 
   @Attribute(DataTypes.INTEGER)
   declare stipendMin: number | null;
@@ -98,16 +123,47 @@ export class Internship extends Model<
   @Default([])
   declare perks: CreationOptional<string[]>;
 
+  // Supplementary freeform eligibility notes (e.g. "Must be based in
+  // Chennai") — structured eligibility criteria live in educationLevel/
+  // stream/experienceRequired below; this stays for nuance those three axes
+  // don't capture.
   @Attribute(DataTypes.JSONB)
   @Default([])
   declare eligibility: CreationOptional<string[]>;
 
+  @Attribute(DataTypes.ENUM('UG', 'PG', 'Other', 'Any'))
+  declare educationLevel: EducationLevel | null;
+
+  @Attribute(
+    DataTypes.ENUM(
+      'Engineering',
+      'Management',
+      'Arts',
+      'Commerce',
+      'Science',
+      'Law',
+      'Medical',
+      'Other',
+      'Any',
+    ),
+  )
+  declare stream: Stream | null;
+
+  @Attribute(DataTypes.BOOLEAN)
+  @NotNull
+  @Default(false)
+  declare experienceRequired: CreationOptional<boolean>;
+
   // AI-generated applicant checklist — LLM-derived from the description (see
-  // modules/checklist/), employer-editable before/after generation. Plain
-  // strings, same convention as skillTags/perks/eligibility above.
+  // modules/checklist/), employer-editable before/after generation. Each
+  // item is either a self-rating question ('rating' — student answers
+  // limited/moderate/expert) or a plain confirmation question ('yesno' —
+  // e.g. "Can you commit to 6 days a week?", which doesn't fit a skill-level
+  // scale). The generator only produces item text; the employer assigns
+  // each item's type when reviewing the generated (or hand-written) list.
   @Attribute(DataTypes.JSONB)
   @Default([])
-  declare checklistItems: CreationOptional<string[]>;
+  declare checklistItems: CreationOptional<Array<{ item: string; type: ChecklistItemType }>>;
 
   @Attribute(DataTypes.INTEGER)
   @NotNull
@@ -118,7 +174,7 @@ export class Internship extends Model<
   @NotNull
   declare applicationDeadline: Date;
 
-  @Attribute(DataTypes.ENUM('draft', 'published', 'closed', 'archived'))
+  @Attribute(DataTypes.ENUM('draft', 'pending_review', 'published', 'closed', 'archived'))
   @NotNull
   @Default('draft')
   declare status: CreationOptional<InternshipStatus>;

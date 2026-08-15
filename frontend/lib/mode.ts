@@ -1,16 +1,17 @@
-import type { InternshipMode } from './types';
-
 // Single source for the mode → icon association. The label text intentionally
 // differs by context (a compact list row vs. the detail page's fuller
 // "Work from Home" copy), so callers pick a variant rather than this module
-// forcing one wording on both.
-const MODE_ICON: Record<InternshipMode, string> = {
+// forcing one wording on both. `mode` is an admin-managed taxonomy value
+// (see lib/useTaxonomy.ts) — unrecognized values (an admin-added mode this
+// map hasn't been taught about) fall back to a generic pin + the raw value
+// rather than rendering "undefined".
+const MODE_ICON: Record<string, string> = {
   remote: '🏠',
   onsite: '🏢',
   hybrid: '🔀',
 };
 
-const MODE_TEXT: Record<'short' | 'full', Record<InternshipMode, string>> = {
+const MODE_TEXT: Record<'short' | 'full', Record<string, string>> = {
   short: {
     remote: 'Remote',
     onsite: 'Onsite',
@@ -23,6 +24,8 @@ const MODE_TEXT: Record<'short' | 'full', Record<InternshipMode, string>> = {
   },
 };
 
-export function modeLabel(mode: InternshipMode, variant: 'short' | 'full' = 'short'): string {
-  return `${MODE_ICON[mode]} ${MODE_TEXT[variant][mode]}`;
+export function modeLabel(mode: string, variant: 'short' | 'full' = 'short'): string {
+  const icon = MODE_ICON[mode] ?? '📍';
+  const text = MODE_TEXT[variant][mode] ?? mode;
+  return `${icon} ${text}`;
 }

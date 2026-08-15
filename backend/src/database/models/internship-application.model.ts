@@ -16,7 +16,17 @@ import {
   Unique,
 } from '@sequelize/core/decorators-legacy';
 import { Internship } from './internship.model.js';
+import type { ChecklistItemType } from './internship.model.js';
 import { Student } from './student.model.js';
+
+// Matches the product spec's original "limited / moderate / expert" scale
+// (§5.2) — a plain checkbox shipped during the Aug 14 refactor was a
+// drift/simplification, not a deliberate scope decision; restored here.
+export type ChecklistResponseLevel = 'limited' | 'moderate' | 'expert';
+
+// A student answers a 'yesno' checklist item (see Internship.checklistItems)
+// with a plain confirmation rather than a skill-level rating.
+export type ChecklistAnswer = 'yes' | 'no';
 
 export type ApplicationStatus =
   | 'applied'
@@ -58,13 +68,25 @@ export class InternshipApplication extends Model<
   @Attribute(DataTypes.TEXT)
   declare coverNote: string | null;
 
-  // Student's self-rating against the employer's checklist at apply time —
-  // e.g. [{ item: 'Comfortable with React', met: true }, ...]. Snapshotted
-  // here rather than re-derived later, since Internship.checklistItems can
-  // change after this application was submitted.
+  // Student's response against the employer's checklist at apply time — e.g.
+  // [{ item: 'Comfortable with React', type: 'rating', value: 'moderate',
+  // note: 'Used it in one course project' }, { item: 'Can work 6 days a
+  // week', type: 'yesno', value: 'yes' }, ...]. `type` is snapshotted
+  // alongside the answer (not re-derived from the live Internship row) so a
+  // response still renders correctly even if the employer edits or removes
+  // that checklist item later. `note` is optional free text — lets a
+  // student explain *why* they answered that way, materially more useful to
+  // an employer than a bare value.
   @Attribute(DataTypes.JSONB)
   @Default([])
-  declare checklistResponses: CreationOptional<Array<{ item: string; met: boolean }>>;
+  declare checklistResponses: CreationOptional<
+    Array<{
+      item: string;
+      type: ChecklistItemType;
+      value: ChecklistResponseLevel | ChecklistAnswer;
+      note?: string | null;
+    }>
+  >;
 
   @Attribute(DataTypes.ENUM('applied', 'shortlisted', 'interviewing', 'offered', 'rejected', 'withdrawn'))
   @NotNull

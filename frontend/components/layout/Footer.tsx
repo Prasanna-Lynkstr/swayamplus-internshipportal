@@ -1,23 +1,10 @@
 import Link from 'next/link';
 import { getServerAuthUser } from '@/lib/serverAuth';
 
-const STATIC_COLUMNS = [
-  {
-    title: 'Support',
-    links: [
-      { href: '/#faq', label: 'FAQ' },
-      { href: '/#contact', label: 'Contact us' },
-    ],
-  },
-  {
-    title: 'Legal',
-    links: [
-      { href: '/#terms', label: 'Terms of use' },
-      { href: '/#privacy', label: 'Privacy policy' },
-    ],
-  },
-];
-
+// A prior "Support"/"Legal" pair of columns (FAQ, Contact us, Terms of use,
+// Privacy policy) linked to /#faq /#contact /#terms /#privacy — anchors that
+// don't exist anywhere on the landing page. Removed rather than left dead;
+// re-add once there's real content behind them.
 export async function Footer() {
   const user = await getServerAuthUser();
   const isStudent = user?.role === 'student';
@@ -49,11 +36,11 @@ export async function Footer() {
     ],
   };
 
-  const columns = [exploreColumn, employersColumn, ...STATIC_COLUMNS];
+  const columns = [exploreColumn, employersColumn];
 
   return (
     <footer className="mt-16 border-t border-black/5 bg-white">
-      <div className="mx-auto grid max-w-6xl grid-cols-2 gap-8 px-4 py-12 sm:grid-cols-4">
+      <div className="mx-auto grid max-w-6xl grid-cols-1 gap-8 px-4 py-12 sm:grid-cols-2">
         {columns.map((col) => (
           <div key={col.title}>
             <h4 className="mb-3 text-sm font-bold text-sp-navy">{col.title}</h4>

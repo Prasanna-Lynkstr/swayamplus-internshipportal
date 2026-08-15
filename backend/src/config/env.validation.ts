@@ -27,6 +27,9 @@ export const envValidationSchema = Joi.object({
   STORAGE_DRIVER: Joi.string().valid('local', 'r2').default('local'),
   UPLOADS_DIR: Joi.string().default('uploads'),
   MAX_UPLOAD_SIZE_MB: Joi.number().integer().min(1).default(10),
+  // Tighter than MAX_UPLOAD_SIZE_MB — an avatar/logo is a small raster image,
+  // not a resume or verification document.
+  MAX_AVATAR_UPLOAD_SIZE_MB: Joi.number().integer().min(1).default(2),
   R2_ACCOUNT_ID: Joi.string()
     .allow('')
     .default('')

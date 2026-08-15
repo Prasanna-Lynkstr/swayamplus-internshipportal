@@ -13,7 +13,7 @@ import { PlatformSettingsModule } from './modules/platform-settings/platform-set
 import { InternshipsModule } from './modules/internships/internships.module.js';
 import { ApplicationsModule } from './modules/applications/applications.module.js';
 import { InternshipRequestsModule } from './modules/internship-requests/internship-requests.module.js';
-import { InterestRegistrationsModule } from './modules/interest-registrations/interest-registrations.module.js';
+import { TaxonomiesModule } from './modules/taxonomies/taxonomies.module.js';
 import { NotificationsModule } from './modules/notifications/notifications.module.js';
 import { HealthModule } from './modules/health/health.module.js';
 
@@ -37,7 +37,7 @@ import { HealthModule } from './modules/health/health.module.js';
     InternshipsModule,
     ApplicationsModule,
     InternshipRequestsModule,
-    InterestRegistrationsModule,
+    TaxonomiesModule,
     HealthModule,
   ],
 })

@@ -14,6 +14,12 @@ export class ApiError extends Error {
   constructor(
     message: string,
     public status: number,
+    // Always populated (defaults to a single-item array wrapping `message`)
+    // so callers can render class-validator's multi-message responses (e.g.
+    // 6 field errors on one failed submit) as a clean list instead of the
+    // comma-joined run-on sentence `message` collapses them into — see
+    // components/ui/FormError.tsx.
+    public messages: string[] = [message],
   ) {
     super(message);
   }
@@ -55,8 +61,9 @@ export async function apiFetch<T = unknown>(path: string, options: ApiFetchOptio
       return new Promise<T>(() => {});
     }
 
-    const message = (data && (data.message || data.error)) || res.statusText;
-    throw new ApiError(Array.isArray(message) ? message.join(', ') : message, res.status);
+    const rawMessage = (data && (data.message || data.error)) || res.statusText;
+    const messages: string[] = Array.isArray(rawMessage) ? rawMessage : [rawMessage];
+    throw new ApiError(messages.join(', '), res.status, messages);
   }
 
   return data as T;

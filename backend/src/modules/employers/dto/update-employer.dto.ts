@@ -1,10 +1,17 @@
-import { IsArray, IsIn, IsInt, IsOptional, IsString, IsUrl, Min } from 'class-validator';
-import { INTERNSHIP_CATEGORIES } from '../../../common/constants/categories.js';
+import { IsArray, IsInt, IsOptional, IsString, IsUrl, Min } from 'class-validator';
 
 export class UpdateEmployerDto {
   @IsOptional()
   @IsString()
   organizationName?: string;
+
+  @IsOptional()
+  @IsString()
+  contactPersonName?: string;
+
+  @IsOptional()
+  @IsString()
+  contactPersonPhone?: string;
 
   @IsOptional()
   @IsString()
@@ -23,9 +30,11 @@ export class UpdateEmployerDto {
   @IsUrl()
   linkedinBusinessPage?: string;
 
+  // Validated against the active 'internship_category' taxonomy in
+  // EmployersService, not a hardcoded @IsIn — see TaxonomiesService.
   @IsOptional()
   @IsArray()
-  @IsIn(INTERNSHIP_CATEGORIES, { each: true })
+  @IsString({ each: true })
   internshipTypesExpected?: string[];
 
   @IsOptional()

@@ -30,5 +30,7 @@ export function useSavedInternships() {
     });
   }, []);
 
-  return { isSaved, toggle };
+  // Exposes the raw id list too — /internships/bookmarked needs to know *which*
+  // ids to fetch, not just answer isSaved(id) for one at a time.
+  return { saved, isSaved, toggle };
 }

@@ -55,6 +55,21 @@ export default function AdminSettingsPage() {
     }
   };
 
+  const toggleAutoApprove = async () => {
+    if (!settings) return;
+    setActionError('');
+    try {
+      const updated = await apiFetch<PlatformSettings>('/admin/settings', {
+        method: 'PATCH',
+        token,
+        body: { autoApproveEmployers: !settings.autoApproveEmployers },
+      });
+      setSettings(updated);
+    } catch {
+      setActionError('Could not update settings. Please try again.');
+    }
+  };
+
   return (
     <div className="flex flex-col gap-8">
       <div>
@@ -103,6 +118,23 @@ export default function AdminSettingsPage() {
               onClick={toggleEmailNotifications}
             >
               {settings?.emailNotificationsEnabled ? 'Disable' : 'Enable'}
+            </Button>
+          </Card>
+
+          <Card className="flex flex-wrap items-center justify-between gap-4 p-6">
+            <div>
+              <h2 className="text-lg font-bold text-sp-navy">Employer auto-approval</h2>
+              <p className="text-sm text-sp-ink-2">
+                {settings?.autoApproveEmployers
+                  ? 'New employer EOI submissions are approved automatically — no admin review before they can post.'
+                  : 'New employer EOI submissions wait in the pending-verification queue for an admin decision.'}
+              </p>
+            </div>
+            <Button
+              variant={settings?.autoApproveEmployers ? 'secondary' : 'primary'}
+              onClick={toggleAutoApprove}
+            >
+              {settings?.autoApproveEmployers ? 'Disable' : 'Enable'}
             </Button>
           </Card>
         </>

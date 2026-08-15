@@ -1,4 +1,4 @@
-import { Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { ConflictException, Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Op, col, fn, where as sqlWhere } from '@sequelize/core';
 import {
@@ -25,6 +25,8 @@ import { VerifyEmployerDto } from './dto/verify-employer.dto.js';
 import { QueryAdminInternshipsDto } from './dto/query-admin-internships.dto.js';
 import { QueryAdminEmployersDto } from './dto/query-admin-employers.dto.js';
 import { QueryAdminStudentsDto } from './dto/query-admin-students.dto.js';
+import { ModerateInternshipDto } from './dto/moderate-internship.dto.js';
+import { UpdateEmployerModerationDto } from './dto/update-employer-moderation.dto.js';
 
 // Never include the full User model without excluding passwordHash — this
 // is the one field on the whole schema that must never leave the process.
@@ -56,8 +58,12 @@ export class AdminService {
     return this.platformSettingsService.updateSettings(dto);
   }
 
-  async getPendingEmployers(query: QueryAdminEmployersDto) {
-    const where: Record<string | symbol, unknown> = { verificationStatus: 'pending' };
+  // Status filter is optional — omitted means every employer, regardless of
+  // verification status, so admin can find an already-approved employer to
+  // change its moderationMode (not just the pending-review queue).
+  async getEmployers(query: QueryAdminEmployersDto) {
+    const where: Record<string | symbol, unknown> = {};
+    if (query.status) where.verificationStatus = query.status;
     if (query.q) {
       where[Op.or] = [
         { organizationName: { [Op.iLike]: `%${query.q}%` } },
@@ -95,6 +101,33 @@ export class AdminService {
     }
 
     return employer;
+  }
+
+  async setEmployerModerationMode(employerId: number, dto: UpdateEmployerModerationDto) {
+    const employer = await this.employerModel.findByPk(employerId);
+    if (!employer) {
+      throw new NotFoundException('Employer not found.');
+    }
+    employer.moderationMode = dto.moderationMode;
+    await employer.save();
+    return employer;
+  }
+
+  // Approve moves a pending-review posting to published (visible in
+  // browse); reject sends it back to draft so the employer can edit and
+  // resubmit — same shape as the EOI approve/reject decision above, just for
+  // a posting instead of an employer account.
+  async moderateInternship(internshipId: number, dto: ModerateInternshipDto) {
+    const internship = await this.internshipModel.findByPk(internshipId);
+    if (!internship) {
+      throw new NotFoundException('Internship not found.');
+    }
+    if (internship.status !== 'pending_review') {
+      throw new ConflictException('This internship is not awaiting review.');
+    }
+    internship.status = dto.decision === 'approved' ? 'published' : 'draft';
+    await internship.save();
+    return internship;
   }
 
   async getAllInternships(query: QueryAdminInternshipsDto) {
@@ -190,7 +223,14 @@ export class AdminService {
       employers[row.verificationStatus] = count;
     }
 
-    const internships = { total: 0, draft: 0, published: 0, closed: 0, archived: 0 };
+    const internships = {
+      total: 0,
+      draft: 0,
+      pending_review: 0,
+      published: 0,
+      closed: 0,
+      archived: 0,
+    };
     for (const row of internshipsByStatus as unknown as Array<{
       status: keyof typeof internships;
       count: string;
