@@ -1,0 +1,27 @@
+[Unit]
+Description=SWAYAM Plus Internship Backend (NestJS/Bun)
+After=network.target postgresql.service
+Wants=postgresql.service
+
+[Service]
+Type=simple
+User=swayamplus
+Group=swayamplus
+WorkingDirectory=/opt/swayamplus-internship/backend
+EnvironmentFile=/opt/swayamplus-internship/backend/.env
+ExecStart=/home/swayamplus/.bun/bin/bun src/main.ts
+Restart=on-failure
+RestartSec=5
+# Drains in-flight requests via app.enableShutdownHooks() (see src/main.ts) —
+# give it a moment before systemd sends SIGKILL on stop/restart.
+TimeoutStopSec=15
+
+# Light sandboxing — the app only needs to read its own tree and write to
+# backend/uploads (when STORAGE_DRIVER=local).
+NoNewPrivileges=true
+ProtectSystem=full
+ProtectHome=true
+ReadWritePaths=/opt/swayamplus-internship/backend/uploads
+
+[Install]
+WantedBy=multi-user.target

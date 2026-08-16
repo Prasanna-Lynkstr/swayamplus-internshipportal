@@ -88,6 +88,9 @@ export default function AdminStudentsPage() {
                   {student.course ? ` · ${student.course}` : ''}
                   {student.city ? ` · ${student.city}` : ''}
                 </p>
+                <p className="text-xs text-sp-ink-3">
+                  Profile created on {new Date(student.createdAt).toLocaleDateString('en-IN')}
+                </p>
                 {student.skills.length > 0 && (
                   <div className="mt-2 flex flex-wrap gap-1.5">
                     {student.skills.map((skill) => (

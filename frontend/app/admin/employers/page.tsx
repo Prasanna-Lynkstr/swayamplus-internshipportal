@@ -10,6 +10,7 @@ import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Input, Select } from '@/components/ui/Input';
 import { ConfirmToast } from '@/components/ui/ConfirmToast';
+import { EmployerEoiModal } from '@/components/admin/EmployerEoiModal';
 import { EMPLOYER_VERIFICATION_STATUS_TONE, STATUS_TONE_BORDER } from '@/lib/status-labels';
 import type { Employer, PaginatedResult } from '@/lib/types';
 
@@ -33,8 +34,12 @@ export default function AdminEmployersPage() {
   // happens after data is already loaded and should never hide that data.
   const [loadError, setLoadError] = useState('');
   const [actionError, setActionError] = useState('');
-  const [pendingReject, setPendingReject] = useState<Employer | null>(null);
-  const [rejectBusy, setRejectBusy] = useState(false);
+  const [viewingEmployer, setViewingEmployer] = useState<Employer | null>(null);
+  const [pendingDecision, setPendingDecision] = useState<{
+    employer: Employer;
+    verdict: 'approved' | 'rejected';
+  } | null>(null);
+  const [decisionBusy, setDecisionBusy] = useState(false);
 
   const load = () => {
     if (!token) return;
@@ -70,15 +75,25 @@ export default function AdminEmployersPage() {
     }
   };
 
-  const confirmReject = async () => {
-    if (!pendingReject) return;
-    setRejectBusy(true);
+  const confirmDecision = async () => {
+    if (!pendingDecision) return;
+    setDecisionBusy(true);
     try {
-      await decide(pendingReject.id, 'rejected');
+      await decide(pendingDecision.employer.id, pendingDecision.verdict);
     } finally {
-      setRejectBusy(false);
-      setPendingReject(null);
+      setDecisionBusy(false);
+      setPendingDecision(null);
     }
+  };
+
+  // Requesting a decision from inside the details modal closes the modal
+  // right away rather than stacking the confirm toast on top of it — two
+  // simultaneous full-screen overlays is one too many, and it's what made
+  // the toast's own buttons unreachable before (the modal's own backdrop
+  // click-to-close sat over them).
+  const requestDecision = (employer: Employer, verdict: 'approved' | 'rejected') => {
+    setViewingEmployer(null);
+    setPendingDecision({ employer, verdict });
   };
 
   const toggleModerationMode = async (employer: Employer) => {
@@ -155,7 +170,13 @@ export default function AdminEmployersPage() {
                   >
                     <div>
                       <div className="mb-1 flex items-center gap-2">
-                        <h3 className="font-bold text-sp-navy">{employer.organizationName}</h3>
+                        <button
+                          type="button"
+                          onClick={() => setViewingEmployer(employer)}
+                          className="font-bold text-sp-navy underline decoration-dotted underline-offset-2 hover:text-sp-blue"
+                        >
+                          {employer.organizationName}
+                        </button>
                         <Badge tone={EMPLOYER_VERIFICATION_STATUS_TONE[employer.verificationStatus]}>
                           {employer.verificationStatus}
                         </Badge>
@@ -168,9 +189,12 @@ export default function AdminEmployersPage() {
                         {employer.cin ? ` · CIN ${employer.cin}` : ''}
                         {employer.headcount ? ` · ${employer.headcount} employees` : ''}
                       </p>
+                      <p className="text-xs text-sp-ink-3">
+                        Applied on {new Date(employer.createdAt).toLocaleDateString('en-IN')}
+                      </p>
                       {(employer.contactPersonName || employer.contactPersonPhone) && (
-                        <p className="text-sm text-sp-ink-3">
-                          Contact: {employer.contactPersonName ?? 'Not set'}
+                        <p className="mt-1 text-sm font-bold text-sp-navy">
+                          Applied by: {employer.contactPersonName ?? 'Not set'}
                           {employer.contactPersonPhone ? ` · ${employer.contactPersonPhone}` : ''}
                         </p>
                       )}
@@ -207,15 +231,31 @@ export default function AdminEmployersPage() {
                             LinkedIn page
                           </a>
                         )}
+                        {employer.website && (
+                          <a
+                            href={employer.website}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="text-sm font-semibold text-sp-blue"
+                          >
+                            Website
+                          </a>
+                        )}
                       </div>
                     </div>
                     <div className="flex flex-col items-end gap-2">
+                      <Button variant="secondary" onClick={() => setViewingEmployer(employer)}>
+                        View EOI details
+                      </Button>
                       {employer.verificationStatus === 'pending' ? (
                         <div className="flex gap-2">
-                          <Button variant="secondary" onClick={() => setPendingReject(employer)}>
+                          <Button
+                            variant="secondary"
+                            onClick={() => requestDecision(employer, 'rejected')}
+                          >
                             Reject
                           </Button>
-                          <Button onClick={() => decide(employer.id, 'approved')}>Approve</Button>
+                          <Button onClick={() => requestDecision(employer, 'approved')}>Approve</Button>
                         </div>
                       ) : (
                         employer.verificationStatus === 'approved' && (
@@ -256,14 +296,21 @@ export default function AdminEmployersPage() {
         </>
       )}
 
-      {pendingReject && (
+      <EmployerEoiModal
+        employer={viewingEmployer}
+        onClose={() => setViewingEmployer(null)}
+        onApprove={(employer) => requestDecision(employer, 'approved')}
+        onReject={(employer) => requestDecision(employer, 'rejected')}
+      />
+
+      {pendingDecision && (
         <ConfirmToast
-          message={`Reject ${pendingReject.organizationName ?? 'this employer'}'s EOI?`}
-          confirmLabel="Reject"
-          danger
-          busy={rejectBusy}
-          onConfirm={confirmReject}
-          onCancel={() => setPendingReject(null)}
+          message={`${pendingDecision.verdict === 'approved' ? 'Approve' : 'Reject'} ${pendingDecision.employer.organizationName ?? 'this employer'}'s EOI?`}
+          confirmLabel={pendingDecision.verdict === 'approved' ? 'Approve' : 'Reject'}
+          danger={pendingDecision.verdict === 'rejected'}
+          busy={decisionBusy}
+          onConfirm={confirmDecision}
+          onCancel={() => setPendingDecision(null)}
         />
       )}
     </div>

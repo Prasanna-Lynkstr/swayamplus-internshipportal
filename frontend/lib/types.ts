@@ -22,6 +22,7 @@ export interface Student {
   mySkillsPlusUrl: string | null;
   photoUrl: string | null;
   acceptedTermsAt: string | null;
+  createdAt: string;
   user?: { identifier: string };
   /** Only present on the GET /students/me response. */
   profileComplete?: boolean;
@@ -51,6 +52,8 @@ export interface Employer {
   verificationStatus: EmployerVerificationStatus;
   moderationMode: EmployerModerationMode;
   acceptedTermsAt: string | null;
+  /** When this employer's EOI was submitted (row creation, not a distinct "submitted at" field). */
+  createdAt: string;
   user?: { identifier: string };
   /** Only present on the GET /employers/me response. */
   profileComplete?: boolean;
@@ -259,6 +262,20 @@ export interface AdminDashboardStats {
   applications: { total: number };
   internshipRequests: { total: number };
   employerRegistrationOpen: boolean;
+}
+
+// GET /admin/dashboard/timeline?from=&to= — one entry per bucket start
+// (bucketed at `granularity`, auto-picked server-side from the requested
+// span), each series array the same length/order as `buckets`.
+export interface DashboardTimeline {
+  granularity: 'day' | 'week' | 'month';
+  buckets: string[];
+  series: {
+    studentsCreated: number[];
+    employersRegistered: number[];
+    internshipsPosted: number[];
+    internshipsOffered: number[];
+  };
 }
 
 export interface EmployerDashboardStats {

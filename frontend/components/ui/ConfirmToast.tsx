@@ -1,5 +1,7 @@
 'use client';
 
+import { createPortal } from 'react-dom';
+
 export function ConfirmToast({
   message,
   confirmLabel = 'Confirm',
@@ -17,7 +19,16 @@ export function ConfirmToast({
   danger?: boolean;
   busy?: boolean;
 }) {
-  return (
+  if (typeof document === 'undefined') return null;
+
+  // Portalled to document.body — like any other modal on this admin page,
+  // not just in-place in the page tree — so it always paints (and receives
+  // clicks) above an already-open full-screen modal. A modal portal and an
+  // in-place-rendered toast share the same z-50, but the modal's portal
+  // node is a later sibling of <body>'s page-content node either way, so an
+  // in-place toast nested inside that page content would always lose the
+  // stacking order and silently eat its own clicks.
+  return createPortal(
     <div className="fixed inset-x-0 bottom-6 z-50 flex justify-center px-4">
       <div className="flex flex-wrap items-center gap-4 rounded-sp-xl bg-sp-navy px-5 py-4 text-white shadow-lg shadow-black/30">
         <p className="text-sm font-semibold">{message}</p>
@@ -42,6 +53,7 @@ export function ConfirmToast({
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

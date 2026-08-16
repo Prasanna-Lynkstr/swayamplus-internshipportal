@@ -7,7 +7,60 @@ import { apiFetch } from '@/lib/api';
 import { AdminTabs } from '@/components/layout/AdminTabs';
 import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
-import type { AdminDashboardStats } from '@/lib/types';
+import { Input } from '@/components/ui/Input';
+import { TimelineChart } from '@/components/admin/TimelineChart';
+import type { AdminDashboardStats, DashboardTimeline } from '@/lib/types';
+
+type RangePreset = 'last30' | 'week' | 'month' | 'quarter' | 'year' | 'custom';
+
+const RANGE_PRESETS: { key: RangePreset; label: string }[] = [
+  { key: 'last30', label: 'Last 30 days' },
+  { key: 'week', label: 'This week' },
+  { key: 'month', label: 'This month' },
+  { key: 'quarter', label: 'This quarter' },
+  { key: 'year', label: 'This year' },
+  { key: 'custom', label: 'Custom' },
+];
+
+// Presets before custom range, all scoping the same timeline below — see
+// dataviz skill, references/interaction.md § Filters & time ranges.
+function computeRange(
+  preset: RangePreset,
+  customFrom: string,
+  customTo: string,
+): { from: Date; to: Date } | null {
+  const now = new Date();
+  if (preset === 'last30') {
+    const from = new Date(now);
+    from.setDate(from.getDate() - 30);
+    return { from, to: now };
+  }
+  if (preset === 'week') {
+    const from = new Date(now);
+    const day = from.getDay();
+    const diffToMonday = day === 0 ? 6 : day - 1;
+    from.setDate(from.getDate() - diffToMonday);
+    from.setHours(0, 0, 0, 0);
+    return { from, to: now };
+  }
+  if (preset === 'month') {
+    return { from: new Date(now.getFullYear(), now.getMonth(), 1), to: now };
+  }
+  if (preset === 'quarter') {
+    const quarterStartMonth = Math.floor(now.getMonth() / 3) * 3;
+    return { from: new Date(now.getFullYear(), quarterStartMonth, 1), to: now };
+  }
+  if (preset === 'year') {
+    return { from: new Date(now.getFullYear(), 0, 1), to: now };
+  }
+  // custom
+  if (!customFrom || !customTo) return null;
+  const from = new Date(customFrom);
+  const to = new Date(customTo);
+  to.setHours(23, 59, 59, 999);
+  if (from > to) return null;
+  return { from, to };
+}
 
 function MetricCard({
   pastel,
@@ -35,6 +88,13 @@ export default function AdminDashboardPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
+  const [rangePreset, setRangePreset] = useState<RangePreset>('last30');
+  const [customFrom, setCustomFrom] = useState('');
+  const [customTo, setCustomTo] = useState('');
+  const [timeline, setTimeline] = useState<DashboardTimeline | null>(null);
+  const [timelineLoading, setTimelineLoading] = useState(false);
+  const [timelineError, setTimelineError] = useState('');
+
   useEffect(() => {
     if (!token) return;
     setLoading(true);
@@ -44,6 +104,22 @@ export default function AdminDashboardPage() {
       .catch(() => setError('Could not load dashboard stats. Please refresh the page.'))
       .finally(() => setLoading(false));
   }, [token]);
+
+  useEffect(() => {
+    if (!token) return;
+    const range = computeRange(rangePreset, customFrom, customTo);
+    if (!range) {
+      if (rangePreset === 'custom') setTimelineError('Pick a valid date range (from must be before to).');
+      return;
+    }
+    setTimelineError('');
+    setTimelineLoading(true);
+    const params = new URLSearchParams({ from: range.from.toISOString(), to: range.to.toISOString() });
+    apiFetch<DashboardTimeline>(`/admin/dashboard/timeline?${params.toString()}`, { token })
+      .then(setTimeline)
+      .catch(() => setTimelineError('Could not load the activity timeline. Please try again.'))
+      .finally(() => setTimelineLoading(false));
+  }, [token, rangePreset, customFrom, customTo]);
 
   return (
     <div className="flex flex-col gap-8">
@@ -85,6 +161,55 @@ export default function AdminDashboardPage() {
               value={stats.applications.total}
               sublabel="Total submitted"
             />
+          </div>
+
+          <div>
+            <h2 className="mb-4 text-lg font-bold text-sp-navy">Activity over time</h2>
+            <Card className="p-6">
+              <div className="mb-5 flex flex-wrap items-center gap-2">
+                {RANGE_PRESETS.map((p) => (
+                  <button
+                    key={p.key}
+                    type="button"
+                    onClick={() => setRangePreset(p.key)}
+                    className={`rounded-full border px-4 py-1.5 text-sm font-bold transition-colors ${
+                      rangePreset === p.key
+                        ? 'border-sp-navy bg-sp-navy text-white'
+                        : 'border-black/10 bg-sp-bg-elev text-sp-ink-2 hover:border-sp-orange/40'
+                    }`}
+                  >
+                    {p.label}
+                  </button>
+                ))}
+                {rangePreset === 'custom' && (
+                  <div className="flex items-center gap-2">
+                    <Input
+                      type="date"
+                      value={customFrom}
+                      onChange={(e) => setCustomFrom(e.target.value)}
+                      className="w-40"
+                    />
+                    <span className="text-sm text-sp-ink-3">to</span>
+                    <Input
+                      type="date"
+                      value={customTo}
+                      onChange={(e) => setCustomTo(e.target.value)}
+                      className="w-40"
+                    />
+                  </div>
+                )}
+              </div>
+
+              {timelineError ? (
+                <p className="text-sm font-semibold text-sp-danger">{timelineError}</p>
+              ) : timelineLoading && !timeline ? (
+                <p className="text-sp-ink-3">Loading…</p>
+              ) : timeline ? (
+                <div className={timelineLoading ? 'opacity-60 transition-opacity' : 'transition-opacity'}>
+                  <TimelineChart data={timeline} />
+                </div>
+              ) : null}
+            </Card>
           </div>
 
           <div>

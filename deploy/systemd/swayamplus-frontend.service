@@ -1,0 +1,26 @@
+[Unit]
+Description=SWAYAM Plus Internship Frontend (Next.js)
+After=network.target swayamplus-backend.service
+Wants=swayamplus-backend.service
+
+[Service]
+Type=simple
+User=swayamplus
+Group=swayamplus
+WorkingDirectory=/opt/swayamplus-internship/frontend
+Environment=NODE_ENV=production
+# Calls the installed `next` binary directly with an explicit port/host
+# rather than `bun run start` (which just runs `next start` from
+# package.json with no args) — avoids depending on next start's PORT env
+# var fallback behavior across versions.
+ExecStart=/opt/swayamplus-internship/frontend/node_modules/.bin/next start -p 3000 -H 0.0.0.0
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=15
+
+NoNewPrivileges=true
+ProtectSystem=full
+ProtectHome=true
+
+[Install]
+WantedBy=multi-user.target

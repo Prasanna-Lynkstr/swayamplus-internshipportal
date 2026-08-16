@@ -10,6 +10,8 @@ import { QueryAdminEmployersDto } from './dto/query-admin-employers.dto.js';
 import { QueryAdminStudentsDto } from './dto/query-admin-students.dto.js';
 import { ModerateInternshipDto } from './dto/moderate-internship.dto.js';
 import { UpdateEmployerModerationDto } from './dto/update-employer-moderation.dto.js';
+import { TakeDownInternshipsDto } from './dto/take-down-internships.dto.js';
+import { QueryDashboardTimelineDto } from './dto/query-dashboard-timeline.dto.js';
 
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles('admin')
@@ -20,6 +22,11 @@ export class AdminController {
   @Get('dashboard')
   getDashboardStats() {
     return this.adminService.getDashboardStats();
+  }
+
+  @Get('dashboard/timeline')
+  getDashboardTimeline(@Query() query: QueryDashboardTimelineDto) {
+    return this.adminService.getDashboardTimeline(query);
   }
 
   @Get('settings')
@@ -61,6 +68,11 @@ export class AdminController {
   @Patch('internships/:id/moderate')
   moderateInternship(@Param('id', ParseIntPipe) id: number, @Body() dto: ModerateInternshipDto) {
     return this.adminService.moderateInternship(id, dto);
+  }
+
+  @Patch('internships/takedown')
+  takeDownInternships(@Body() dto: TakeDownInternshipsDto) {
+    return this.adminService.takeDownInternships(dto.ids);
   }
 
   @Get('students')
