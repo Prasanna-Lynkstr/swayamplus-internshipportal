@@ -10,7 +10,8 @@ import type { ApplicationStatus } from '../../database/models/index.js';
 import { STORAGE_SERVICE } from '../storage/storage.constants.js';
 import type { StorageService, UploadableFile } from '../storage/storage.types.js';
 import { TaxonomiesService } from '../taxonomies/taxonomies.service.js';
-import { ResumeParserService, type ParsedResumeFields } from './resume-parser.service.js';
+import { ResumeParserService } from './resume-parser.service.js';
+import type { ParsedResumeFields } from './resume-parser.types.js';
 import { UpdateStudentDto } from './dto/update-student.dto.js';
 import { UpdateStudentPreferencesDto } from './dto/update-student-preferences.dto.js';
 

@@ -18,6 +18,8 @@ export class PlatformSettingsService {
         employerRegistrationOpen: true,
         autoApproveEmployers: false,
         emailNotificationsEnabled: true,
+        resumeParsingEnabled: false,
+        resumeParsingProvider: 'anthropic',
       },
     });
     return settings;
@@ -27,6 +29,8 @@ export class PlatformSettingsService {
     employerRegistrationOpen?: boolean;
     autoApproveEmployers?: boolean;
     emailNotificationsEnabled?: boolean;
+    resumeParsingEnabled?: boolean;
+    resumeParsingProvider?: 'anthropic' | 'openai';
   }): Promise<PlatformSetting> {
     const settings = await this.getSettings();
     settings.set(partial);

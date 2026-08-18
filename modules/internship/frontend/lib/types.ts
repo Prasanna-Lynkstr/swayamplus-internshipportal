@@ -301,6 +301,8 @@ export interface PlatformSettings {
   employerRegistrationOpen: boolean;
   autoApproveEmployers: boolean;
   emailNotificationsEnabled: boolean;
+  resumeParsingEnabled: boolean;
+  resumeParsingProvider: 'anthropic' | 'openai';
 }
 
 export interface AdminDashboardStats {

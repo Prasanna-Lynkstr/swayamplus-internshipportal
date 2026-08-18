@@ -59,6 +59,17 @@ export const envValidationSchema = Joi.object({
   ANTHROPIC_API_KEY: Joi.string().allow('').default(''),
   CHECKLIST_LLM_MODEL: Joi.string().default('claude-haiku-4-5-20251001'),
 
+  // AI-assisted resume-field extraction (register/student's upload-first
+  // step). Whether it's on at all, and which provider, are admin-toggleable
+  // at runtime (platform_settings — see PlatformSettingsService), not env
+  // vars — this block only supplies the provider credentials/models those
+  // settings pick between. OPENAI_API_KEY empty = that provider silently
+  // falls back to the heuristic extractor, same "empty env var = dev-safe
+  // default" pattern as ANTHROPIC_API_KEY/SMTP/R2 above.
+  OPENAI_API_KEY: Joi.string().allow('').default(''),
+  RESUME_PARSER_ANTHROPIC_MODEL: Joi.string().default('claude-haiku-4-5-20251001'),
+  RESUME_PARSER_OPENAI_MODEL: Joi.string().default('gpt-4o-mini'),
+
   OTP_TTL_MINUTES: Joi.number().integer().min(1).default(10),
   OTP_REQUEST_LIMIT: Joi.number().integer().min(1).default(5),
   OTP_VERIFY_ATTEMPT_LIMIT: Joi.number().integer().min(1).default(5),

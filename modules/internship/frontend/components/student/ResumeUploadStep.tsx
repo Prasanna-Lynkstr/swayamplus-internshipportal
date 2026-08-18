@@ -14,6 +14,9 @@ interface ParseResumeResponse {
     collegeName: string | null;
     course: string | null;
     graduationYear: number | null;
+    city: string | null;
+    linkedinUrl: string | null;
+    githubUrl: string | null;
     skills: string[];
     textExtracted: boolean;
   };
@@ -62,6 +65,9 @@ export function ResumeUploadStep({
       if (result.parsed.collegeName) labels.push('college');
       if (result.parsed.course) labels.push('course');
       if (result.parsed.graduationYear) labels.push('graduation year');
+      if (result.parsed.city) labels.push('city');
+      if (result.parsed.linkedinUrl) labels.push('LinkedIn');
+      if (result.parsed.githubUrl) labels.push('GitHub');
       if (result.parsed.skills.length > 0) {
         labels.push(`${result.parsed.skills.length} skill${result.parsed.skills.length === 1 ? '' : 's'}`);
       }
@@ -72,6 +78,9 @@ export function ResumeUploadStep({
         collegeName: result.parsed.collegeName,
         course: result.parsed.course,
         graduationYear: result.parsed.graduationYear,
+        city: result.parsed.city,
+        linkedinUrl: result.parsed.linkedinUrl,
+        githubUrl: result.parsed.githubUrl,
         skills: result.parsed.skills,
       });
     } catch {

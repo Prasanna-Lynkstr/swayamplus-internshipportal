@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { apiFetch, ApiError } from '@/lib/api';
 import { Button } from '@/components/ui/Button';
-import { Input, Label, Select } from '@/components/ui/Input';
+import { Input, Label, Select, Textarea } from '@/components/ui/Input';
 import { StudentTermsModal } from './StudentTermsModal';
 import type { Student } from '@/lib/types';
 
@@ -22,14 +22,16 @@ function graduationYearOptions(): number[] {
 // (student/dashboard) without either caller having to thread profile state
 // through — same pattern PreferencesCard already used before this refactor.
 // Best-effort fields the upload-first resume step can suggest — a subset of
-// Student, since city/linkedinUrl/etc. aren't something resume parsing
-// attempts to extract.
+// Student (mySkillsPlusUrl/photoUrl/etc. aren't things a resume contains).
 export interface ProfilePrefill {
   fullName?: string | null;
   phone?: string | null;
   collegeName?: string | null;
   course?: string | null;
   graduationYear?: number | null;
+  city?: string | null;
+  linkedinUrl?: string | null;
+  githubUrl?: string | null;
   skills?: string[];
 }
 
@@ -68,6 +70,9 @@ export function ProfileFieldsCard({
         collegeName: s.collegeName || prefill?.collegeName || null,
         course: s.course || prefill?.course || null,
         graduationYear: s.graduationYear || prefill?.graduationYear || null,
+        city: s.city || prefill?.city || null,
+        linkedinUrl: s.linkedinUrl || prefill?.linkedinUrl || null,
+        githubUrl: s.githubUrl || prefill?.githubUrl || null,
       };
       const skills = s.skills.length > 0 ? s.skills : prefill?.skills ?? [];
       setProfile(merged);
@@ -196,9 +201,10 @@ export function ProfileFieldsCard({
       </div>
       <div className="sm:col-span-2">
         <Label htmlFor="skills" required>Skills (comma-separated)</Label>
-        <Input
+        <Textarea
           id="skills"
           required
+          rows={4}
           value={skillsText}
           onChange={(e) => setSkillsText(e.target.value)}
           placeholder="React, Node.js, SQL"

@@ -1,4 +1,4 @@
-import { IsBoolean, IsOptional } from 'class-validator';
+import { IsBoolean, IsIn, IsOptional } from 'class-validator';
 
 export class UpdateSettingsDto {
   @IsOptional()
@@ -12,4 +12,12 @@ export class UpdateSettingsDto {
   @IsOptional()
   @IsBoolean()
   emailNotificationsEnabled?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  resumeParsingEnabled?: boolean;
+
+  @IsOptional()
+  @IsIn(['anthropic', 'openai'])
+  resumeParsingProvider?: 'anthropic' | 'openai';
 }
