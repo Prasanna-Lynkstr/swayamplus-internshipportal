@@ -21,7 +21,7 @@ import type { AuthenticatedUser } from '../../common/decorators/current-user.dec
 import { USER_SAFE_ATTRIBUTES } from '../../common/constants/user-safe-attributes.js';
 import { resolvePagination, toPaginatedResult } from '../../common/utils/pagination.util.js';
 import { serializeStudent } from '../../common/utils/serialize-student.util.js';
-import { scoreStudentMatch } from '../../common/utils/match-score.util.js';
+import { matchedSkillTags, scoreStudentMatch } from '../../common/utils/match-score.util.js';
 import type { PaginationQueryDto } from '../../common/dto/pagination-query.dto.js';
 import { QueryCandidatesDto } from './dto/query-candidates.dto.js';
 
@@ -245,6 +245,7 @@ export class CandidatesService {
         score,
         activeRecently: activeIds.has(row.id),
         preferences: preferencesById.get(row.id)?.get({ plain: true }) ?? null,
+        matchedSkills: matchedSkillTags(row.skills, internship.skillTags),
       }),
     );
     return toPaginatedResult(items, total, page, pageSize);

@@ -63,6 +63,17 @@ export function InternshipCard({ internship }: { internship: Internship }) {
           {eligibilityTag && <Badge tone="neutral">{eligibilityTag}</Badge>}
         </div>
 
+        {internship.matchedSkills && internship.matchedSkills.length > 0 && (
+          <div className="flex flex-wrap items-center gap-1 text-[11px] font-semibold text-sp-ink-3">
+            <span>Matches your skills:</span>
+            {internship.matchedSkills.map((skill) => (
+              <Badge key={skill} tone="good">
+                {skill}
+              </Badge>
+            ))}
+          </div>
+        )}
+
         <div className="mt-auto flex flex-wrap items-center justify-between gap-2 border-t border-black/5 pt-3">
           <div className="flex items-center gap-1.5">
             {internship.appliedByCurrentUser && <Badge tone="good">Applied</Badge>}

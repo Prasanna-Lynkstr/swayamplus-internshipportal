@@ -31,7 +31,7 @@ import { QueryInternshipsDto } from './dto/query-internships.dto.js';
 import { QueryMineInternshipsDto } from './dto/query-mine-internships.dto.js';
 import { resolvePagination, toPaginatedResult } from '../../common/utils/pagination.util.js';
 import { serializeInternship } from '../../common/utils/serialize-internship.util.js';
-import { scoreStudentMatch } from '../../common/utils/match-score.util.js';
+import { matchedSkillTags, scoreStudentMatch } from '../../common/utils/match-score.util.js';
 
 @Injectable()
 export class InternshipsService {
@@ -262,6 +262,7 @@ export class InternshipsService {
         serializeInternship(row.get({ plain: true }), {
           appliedByCurrentUser: appliedIds.has(row.id),
           activelyHiring: activelyHiringIds.has(row.employerId),
+          matchedSkills: matchedSkillTags(studentSkills, row.skillTags),
         }),
       );
       return toPaginatedResult(items, scored.length, page, pageSize);
@@ -295,6 +296,7 @@ export class InternshipsService {
       serializeInternship(row.get({ plain: true }), {
         appliedByCurrentUser: appliedIds.has(row.id),
         activelyHiring: activelyHiringIds.has(row.employerId),
+        matchedSkills: matchedSkillTags(studentSkills, row.skillTags),
       }),
     );
 

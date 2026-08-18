@@ -7,8 +7,11 @@ import {
   ParseUUIDPipe,
   Patch,
   Query,
+  Res,
   UseGuards,
 } from '@nestjs/common';
+import type { Response } from 'express';
+import { sendCsv } from '../../common/utils/send-csv.util.js';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard.js';
 import { RolesGuard } from '../../common/guards/roles.guard.js';
 import { Roles } from '../../common/decorators/roles.decorator.js';
@@ -61,6 +64,14 @@ export class AdminController {
     return this.adminService.getEmployers(query);
   }
 
+  // Same filters as getEmployers, unpaged — CSV for a marketing manager to
+  // upload into Mailchimp (or any other list-based email tool).
+  @Get('employers/export')
+  async exportEmployers(@Query() query: QueryAdminEmployersDto, @Res({ passthrough: true }) res: Response) {
+    const csv = await this.adminService.exportEmployers(query);
+    sendCsv(res, csv, 'employers.csv');
+  }
+
   @Patch('employers/:id/moderation')
   setEmployerModerationMode(
     @Param('id', ParseIntPipe) id: number,
@@ -87,5 +98,13 @@ export class AdminController {
   @Get('students')
   getAllStudents(@Query() query: QueryAdminStudentsDto) {
     return this.adminService.getAllStudents(query);
+  }
+
+  // Same filters as getAllStudents, unpaged — CSV for a marketing manager to
+  // upload into Mailchimp (or any other list-based email tool).
+  @Get('students/export')
+  async exportStudents(@Query() query: QueryAdminStudentsDto, @Res({ passthrough: true }) res: Response) {
+    const csv = await this.adminService.exportStudents(query);
+    sendCsv(res, csv, 'students.csv');
   }
 }

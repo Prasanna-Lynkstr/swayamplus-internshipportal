@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/lib/auth';
-import { apiFetch } from '@/lib/api';
+import { apiFetch, downloadCsv } from '@/lib/api';
 import { AdminTabs } from '@/components/layout/AdminTabs';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -24,6 +24,22 @@ export default function AdminRequestsPage() {
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [exporting, setExporting] = useState(false);
+  const [exportError, setExportError] = useState('');
+
+  const handleExport = async () => {
+    setExporting(true);
+    setExportError('');
+    try {
+      const params = new URLSearchParams();
+      if (q) params.set('q', q);
+      await downloadCsv(`/admin/internship-requests/export?${params.toString()}`, token, 'internship-requests.csv');
+    } catch {
+      setExportError('Could not export. Please try again.');
+    } finally {
+      setExporting(false);
+    }
+  };
 
   useEffect(() => {
     if (!token) return;
@@ -55,7 +71,7 @@ export default function AdminRequestsPage() {
 
       <AdminTabs />
 
-      <div className="flex items-center gap-3">
+      <div className="flex flex-wrap items-center gap-3">
         <span className="text-sm font-semibold text-sp-ink-2">
           {result.total} request{result.total === 1 ? '' : 's'}
         </span>
@@ -69,7 +85,12 @@ export default function AdminRequestsPage() {
             }}
           />
         </div>
+        <Button variant="secondary" disabled={exporting} onClick={handleExport}>
+          {exporting ? 'Exporting…' : 'Export CSV'}
+        </Button>
       </div>
+
+      {exportError && <p className="text-sm font-semibold text-sp-danger">{exportError}</p>}
 
       {loading ? (
         <p className="text-sp-ink-3">Loading…</p>

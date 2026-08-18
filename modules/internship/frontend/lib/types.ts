@@ -183,6 +183,8 @@ export interface Internship {
   appliedByCurrentUser?: boolean;
   /** Present on GET /internships — true when this employer has 2+ currently-published internships. */
   activelyHiring?: boolean;
+  /** Present on GET /internships when the requester is an authenticated student — this listing's skillTags that overlap the student's own skills. */
+  matchedSkills?: string[];
 }
 
 export type ApplicationStatus =
@@ -267,6 +269,8 @@ export interface Candidate extends Student {
   preferences: StudentPreferences | null;
   /** Present only on GET /internships/:id/recommended-candidates — this candidate's match score against that specific listing. */
   score?: number;
+  /** Present only on GET /internships/:id/recommended-candidates — this candidate's skills that overlap that listing's skillTags. */
+  matchedSkills?: string[];
 }
 
 export interface PaginatedResult<T> {

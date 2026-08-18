@@ -1,6 +1,6 @@
 import { ConflictException, Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { Op, col, fn, where as sqlWhere } from '@sequelize/core';
+import { Op, cast, col, fn, where as sqlWhere } from '@sequelize/core';
 import {
   EMPLOYER_EOI_MODEL,
   EMPLOYER_MODEL,
@@ -8,6 +8,7 @@ import {
   INTERNSHIP_MODEL,
   INTERNSHIP_REQUEST_MODEL,
   STUDENT_MODEL,
+  STUDENT_PREFERENCE_MODEL,
   USER_MODEL,
 } from '../../database/database.constants.js';
 import {
@@ -17,12 +18,15 @@ import {
   InternshipApplication,
   InternshipRequest,
   Student,
+  StudentPreference,
   User,
 } from '../../database/models/index.js';
 import { PlatformSettingsService } from '../platform-settings/platform-settings.service.js';
 import { resolvePagination, toPaginatedResult } from '../../common/utils/pagination.util.js';
 import { serializeInternship } from '../../common/utils/serialize-internship.util.js';
 import { USER_SAFE_ATTRIBUTES } from '../../common/constants/user-safe-attributes.js';
+import { toCsv } from '../../common/utils/csv.util.js';
+import { isStudentProfileComplete } from '../../common/utils/student-profile.util.js';
 import { UpdateSettingsDto } from './dto/update-settings.dto.js';
 import { QueryAdminInternshipsDto } from './dto/query-admin-internships.dto.js';
 import { QueryAdminEmployersDto } from './dto/query-admin-employers.dto.js';
@@ -30,6 +34,34 @@ import { QueryAdminStudentsDto } from './dto/query-admin-students.dto.js';
 import { ModerateInternshipDto } from './dto/moderate-internship.dto.js';
 import { UpdateEmployerModerationDto } from './dto/update-employer-moderation.dto.js';
 import { QueryDashboardTimelineDto } from './dto/query-dashboard-timeline.dto.js';
+
+const DEFAULT_ACTIVITY_WINDOW_DAYS = 30;
+const STUDENT_EXPORT_COLUMNS = [
+  { key: 'email', label: 'Email' },
+  { key: 'fullName', label: 'Full name' },
+  { key: 'phone', label: 'Phone' },
+  { key: 'collegeName', label: 'College' },
+  { key: 'course', label: 'Course' },
+  { key: 'graduationYear', label: 'Graduation year' },
+  { key: 'city', label: 'City' },
+  { key: 'skills', label: 'Skills' },
+  { key: 'preferredCategories', label: 'Preferred categories' },
+  { key: 'profileComplete', label: 'Profile complete' },
+  { key: 'activity', label: 'Activity' },
+  { key: 'createdAt', label: 'Registered on' },
+];
+const EMPLOYER_EXPORT_COLUMNS = [
+  { key: 'email', label: 'Email' },
+  { key: 'organizationName', label: 'Organization' },
+  { key: 'contactPersonName', label: 'Contact person' },
+  { key: 'contactPersonPhone', label: 'Contact phone' },
+  { key: 'hqCity', label: 'HQ city' },
+  { key: 'industryTags', label: 'Industry tags' },
+  { key: 'verificationStatus', label: 'Verification status' },
+  { key: 'postedCount', label: 'Internships posted' },
+  { key: 'activation', label: 'Activation status' },
+  { key: 'createdAt', label: 'Registered on' },
+];
 
 type TimelineGranularity = 'day' | 'week' | 'month';
 
@@ -79,6 +111,7 @@ export class AdminService {
     @Inject(EMPLOYER_EOI_MODEL) private readonly employerEoiModel: typeof EmployerEoi,
     @Inject(USER_MODEL) private readonly userModel: typeof User,
     @Inject(STUDENT_MODEL) private readonly studentModel: typeof Student,
+    @Inject(STUDENT_PREFERENCE_MODEL) private readonly studentPreferenceModel: typeof StudentPreference,
     @Inject(INTERNSHIP_MODEL) private readonly internshipModel: typeof Internship,
     @Inject(INTERNSHIP_APPLICATION_MODEL)
     private readonly applicationModel: typeof InternshipApplication,
@@ -96,30 +129,140 @@ export class AdminService {
     return this.platformSettingsService.updateSettings(dto);
   }
 
-  // Status filter is optional — omitted means every employer, regardless of
-  // verification status, so admin can find an already-approved employer to
-  // change its moderationMode (not just the pending-review queue).
-  async getEmployers(query: QueryAdminEmployersDto) {
+  // SQL-filterable columns only (status/q/hqCity/industryTags) — activation
+  // is derived from Internship/InternshipApplication aggregates that have no
+  // direct column to filter on, so it's applied in-memory afterward. Shared
+  // by both the paginated list and the CSV export so what an admin previews
+  // is exactly what they'd export — same "fine at admin-only, occasional-use
+  // scale" tradeoff CandidatesService already makes for a hotter, employer-
+  // facing endpoint (see match-score.util.ts's comment).
+  private employerBaseWhere(query: QueryAdminEmployersDto): Record<string | symbol, unknown> {
     const where: Record<string | symbol, unknown> = {};
     if (query.status) where.verificationStatus = query.status;
+    if (query.hqCity) where.hqCity = { [Op.iLike]: `%${query.hqCity}%` };
+    if (query.industryTags?.length) {
+      where[Op.and] = [
+        {
+          [Op.or]: query.industryTags.map((tag) =>
+            sqlWhere(cast(col('industryTags'), 'text'), { [Op.iLike]: `%${tag}%` }),
+          ),
+        },
+      ];
+    }
     if (query.q) {
       where[Op.or] = [
         { organizationName: { [Op.iLike]: `%${query.q}%` } },
         sqlWhere(col('user.identifier'), { [Op.iLike]: `%${query.q}%` }),
       ];
     }
+    return where;
+  }
 
-    const { page, pageSize, offset } = resolvePagination(this.configService, query);
+  // employerId -> { postedCount, activation }. cutoffDate gates 'dormant'
+  // (posted before, nothing new since). Priority when more than one label
+  // could apply: never_posted > zero_applicants > actively_hiring > dormant
+  // > active — matches the order a marketing manager would actually care
+  // about (an employer with 2 live roles and zero applicants is a "help
+  // them get applicants" case, not a loyalty-campaign case).
+  private async computeEmployerActivation(
+    employerIds: number[],
+    cutoffDate: Date,
+  ): Promise<Map<number, { postedCount: number; activation: string }>> {
+    const result = new Map<number, { postedCount: number; activation: string }>();
+    if (employerIds.length === 0) return result;
 
-    const { rows, count } = await this.employerModel.findAndCountAll({
-      where,
+    const internships = await this.internshipModel.findAll({
+      attributes: ['id', 'employerId', 'status', 'createdAt'],
+      where: { employerId: { [Op.in]: employerIds } },
+      raw: true,
+    });
+    const internshipIds = internships.map((i) => (i as unknown as { id: number }).id);
+    const applicantCounts = internshipIds.length
+      ? ((await this.applicationModel.findAll({
+          attributes: ['internshipId', [fn('COUNT', col('id')), 'count']],
+          where: { internshipId: { [Op.in]: internshipIds } },
+          group: ['internshipId'],
+          raw: true,
+        })) as unknown as Array<{ internshipId: number; count: string }>)
+      : [];
+    const applicantsByInternshipId = new Map(applicantCounts.map((r) => [r.internshipId, Number(r.count)]));
+
+    for (const employerId of employerIds) {
+      const own = internships.filter(
+        (i) => (i as unknown as { employerId: number }).employerId === employerId,
+      ) as unknown as Array<{ id: number; status: string; createdAt: string }>;
+      const postedCount = own.length;
+      const publishedCount = own.filter((i) => i.status === 'published').length;
+      const totalApplicants = own.reduce((sum, i) => sum + (applicantsByInternshipId.get(i.id) ?? 0), 0);
+      const lastPostedAt = own.length > 0 ? new Date(Math.max(...own.map((i) => new Date(i.createdAt).getTime()))) : null;
+
+      let activation: string;
+      if (postedCount === 0) activation = 'never_posted';
+      else if (totalApplicants === 0) activation = 'zero_applicants';
+      else if (publishedCount >= 2) activation = 'actively_hiring';
+      else if (lastPostedAt && lastPostedAt < cutoffDate) activation = 'dormant';
+      else activation = 'active';
+
+      result.set(employerId, { postedCount, activation });
+    }
+    return result;
+  }
+
+  private async filteredEmployers(
+    query: QueryAdminEmployersDto,
+  ): Promise<Array<{ employer: Employer; postedCount: number; activation: string }>> {
+    const rows = await this.employerModel.findAll({
+      where: this.employerBaseWhere(query),
       include: [{ model: this.userModel, as: 'user', ...USER_SAFE_ATTRIBUTES }],
       order: [['createdAt', 'ASC']],
-      limit: pageSize,
-      offset,
     });
+    const windowDays = query.activityWindowDays ?? DEFAULT_ACTIVITY_WINDOW_DAYS;
+    const cutoffDate = new Date(Date.now() - windowDays * 24 * 60 * 60 * 1000);
+    const activationById = await this.computeEmployerActivation(rows.map((r) => r.id), cutoffDate);
 
-    return toPaginatedResult(rows, count, page, pageSize);
+    let combined = rows.map((employer) => ({
+      employer,
+      postedCount: activationById.get(employer.id)?.postedCount ?? 0,
+      activation: activationById.get(employer.id)?.activation ?? 'never_posted',
+    }));
+    if (query.activation) {
+      combined = combined.filter((c) => c.activation === query.activation);
+    }
+    return combined;
+  }
+
+  // Status filter is optional — omitted means every employer, regardless of
+  // verification status, so admin can find an already-approved employer to
+  // change its moderationMode (not just the pending-review queue).
+  async getEmployers(query: QueryAdminEmployersDto) {
+    const filtered = await this.filteredEmployers(query);
+    const { page, pageSize, offset } = resolvePagination(this.configService, query);
+    const pageRows = filtered.slice(offset, offset + pageSize);
+    const items = pageRows.map(({ employer, postedCount, activation }) => ({
+      ...employer.get({ plain: true }),
+      postedCount,
+      activation,
+    }));
+    return toPaginatedResult(items, filtered.length, page, pageSize);
+  }
+
+  // Full matching set, no pagination — CSV rows for a marketing manager to
+  // upload into Mailchimp. Same filters as getEmployers, just unpaged.
+  async exportEmployers(query: QueryAdminEmployersDto): Promise<string> {
+    const filtered = await this.filteredEmployers(query);
+    const rows = filtered.map(({ employer, postedCount, activation }) => ({
+      email: employer.user?.identifier ?? '',
+      organizationName: employer.organizationName ?? '',
+      contactPersonName: employer.contactPersonName ?? '',
+      contactPersonPhone: employer.contactPersonPhone ?? '',
+      hqCity: employer.hqCity ?? '',
+      industryTags: employer.industryTags.join('; '),
+      verificationStatus: employer.verificationStatus,
+      postedCount,
+      activation,
+      createdAt: employer.createdAt.toISOString(),
+    }));
+    return toCsv(rows, EMPLOYER_EXPORT_COLUMNS);
   }
 
   async setEmployerModerationMode(employerId: number, dto: UpdateEmployerModerationDto) {
@@ -207,8 +350,22 @@ export class AdminService {
     return toPaginatedResult(items, count, page, pageSize);
   }
 
-  async getAllStudents(query: QueryAdminStudentsDto) {
+  // SQL-filterable columns only (city/graduationYear range/skill/q) —
+  // category (from StudentPreference, no direct association to join
+  // through), profileComplete, and activity are applied in-memory
+  // afterward. Same tradeoff/precedent as employerBaseWhere above.
+  private studentBaseWhere(query: QueryAdminStudentsDto): Record<string | symbol, unknown> {
     const where: Record<string | symbol, unknown> = {};
+    if (query.city) where.city = { [Op.iLike]: `%${query.city}%` };
+    if (query.graduationYearMin || query.graduationYearMax) {
+      const range: Record<symbol, number> = {};
+      if (query.graduationYearMin) range[Op.gte] = query.graduationYearMin;
+      if (query.graduationYearMax) range[Op.lte] = query.graduationYearMax;
+      where.graduationYear = range;
+    }
+    if (query.skill) {
+      where[Op.and] = [sqlWhere(cast(col('skills'), 'text'), { [Op.iLike]: `%${query.skill}%` })];
+    }
     if (query.q) {
       where[Op.or] = [
         { fullName: { [Op.iLike]: `%${query.q}%` } },
@@ -216,18 +373,89 @@ export class AdminService {
         sqlWhere(col('user.identifier'), { [Op.iLike]: `%${query.q}%` }),
       ];
     }
+    return where;
+  }
 
-    const { page, pageSize, offset } = resolvePagination(this.configService, query);
+  private async getActiveStudentIds(studentIds: number[], cutoffDate: Date): Promise<Set<number>> {
+    if (studentIds.length === 0) return new Set();
+    const rows = await this.applicationModel.findAll({
+      attributes: ['studentId'],
+      where: { studentId: { [Op.in]: studentIds }, createdAt: { [Op.gte]: cutoffDate } },
+      group: ['studentId'],
+      raw: true,
+    });
+    return new Set((rows as unknown as Array<{ studentId: number }>).map((r) => r.studentId));
+  }
 
-    const { rows, count } = await this.studentModel.findAndCountAll({
-      where,
+  private async filteredStudents(
+    query: QueryAdminStudentsDto,
+  ): Promise<Array<{ student: Student; preferences: StudentPreference | null; profileComplete: boolean; activity: 'active' | 'dormant' }>> {
+    const rows = await this.studentModel.findAll({
+      where: this.studentBaseWhere(query),
       include: [{ model: this.userModel, as: 'user', ...USER_SAFE_ATTRIBUTES }],
       order: [['createdAt', 'DESC']],
-      limit: pageSize,
-      offset,
     });
+    const preferenceRows = await this.studentPreferenceModel.findAll({
+      where: { studentId: { [Op.in]: rows.map((r) => r.id) } },
+    });
+    const preferencesById = new Map(preferenceRows.map((p) => [p.studentId, p]));
 
-    return toPaginatedResult(rows, count, page, pageSize);
+    const windowDays = query.activityWindowDays ?? DEFAULT_ACTIVITY_WINDOW_DAYS;
+    const cutoffDate = new Date(Date.now() - windowDays * 24 * 60 * 60 * 1000);
+    const activeIds = await this.getActiveStudentIds(rows.map((r) => r.id), cutoffDate);
+
+    let combined = rows.map((student) => ({
+      student,
+      preferences: preferencesById.get(student.id) ?? null,
+      profileComplete: isStudentProfileComplete(student),
+      activity: (activeIds.has(student.id) ? 'active' : 'dormant') as 'active' | 'dormant',
+    }));
+
+    if (query.category?.length) {
+      combined = combined.filter((c) =>
+        query.category!.some((cat) => c.preferences?.preferredCategories.includes(cat)),
+      );
+    }
+    if (query.profileComplete !== undefined) {
+      combined = combined.filter((c) => c.profileComplete === query.profileComplete);
+    }
+    if (query.activity) {
+      combined = combined.filter((c) => c.activity === query.activity);
+    }
+    return combined;
+  }
+
+  async getAllStudents(query: QueryAdminStudentsDto) {
+    const filtered = await this.filteredStudents(query);
+    const { page, pageSize, offset } = resolvePagination(this.configService, query);
+    const pageRows = filtered.slice(offset, offset + pageSize);
+    const items = pageRows.map(({ student, profileComplete, activity }) => ({
+      ...student.get({ plain: true }),
+      profileComplete,
+      activity,
+    }));
+    return toPaginatedResult(items, filtered.length, page, pageSize);
+  }
+
+  // Full matching set, no pagination — CSV rows for a marketing manager to
+  // upload into Mailchimp. Same filters as getAllStudents, just unpaged.
+  async exportStudents(query: QueryAdminStudentsDto): Promise<string> {
+    const filtered = await this.filteredStudents(query);
+    const rows = filtered.map(({ student, preferences, profileComplete, activity }) => ({
+      email: student.user?.identifier ?? '',
+      fullName: student.fullName ?? '',
+      phone: student.phone ?? '',
+      collegeName: student.collegeName ?? '',
+      course: student.course ?? '',
+      graduationYear: student.graduationYear ?? '',
+      city: student.city ?? '',
+      skills: student.skills.join('; '),
+      preferredCategories: preferences?.preferredCategories.join('; ') ?? '',
+      profileComplete: profileComplete ? 'yes' : 'no',
+      activity,
+      createdAt: student.createdAt.toISOString(),
+    }));
+    return toCsv(rows, STUDENT_EXPORT_COLUMNS);
   }
 
   async getDashboardStats() {

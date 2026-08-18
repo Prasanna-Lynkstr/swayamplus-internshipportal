@@ -49,3 +49,12 @@ export function scoreStudentMatch(
 
   return score;
 }
+
+// Same case-insensitive comparison as the score above, but returns the
+// actual overlapping tags (in the internship's own casing, since that's
+// what's already rendered as chips on cards) so the UI can show *why* a
+// listing/candidate matched instead of just a bare score.
+export function matchedSkillTags(studentSkills: string[], internshipSkillTags: string[]): string[] {
+  const studentSkillSet = new Set(studentSkills.map((s) => s.toLowerCase()));
+  return internshipSkillTags.filter((tag) => studentSkillSet.has(tag.toLowerCase()));
+}

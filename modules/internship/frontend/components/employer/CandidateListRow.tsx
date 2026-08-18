@@ -16,6 +16,9 @@ import type { Candidate } from '@/lib/types';
 export function CandidateListRow({ candidate, token }: { candidate: Candidate; token: string | null }) {
   const [open, setOpen] = useState(false);
   const initial = (candidate.fullName ?? 'S').charAt(0).toUpperCase();
+  // matchedSkills comes back in the internship's own tag casing, so compare
+  // case-insensitively against the candidate's own skill strings.
+  const matchedSkillSet = new Set((candidate.matchedSkills ?? []).map((s) => s.toLowerCase()));
   const metaLine = [
     candidate.course,
     candidate.graduationYear ? `Class of ${candidate.graduationYear}` : null,
@@ -51,14 +54,22 @@ export function CandidateListRow({ candidate, token }: { candidate: Candidate; t
 
             {candidate.skills.length > 0 && (
               <div className="mt-1.5 flex flex-wrap gap-1.5">
-                {candidate.skills.slice(0, 6).map((skill) => (
-                  <span
-                    key={skill}
-                    className="rounded-full bg-sp-bg-sunken px-2.5 py-1 text-[11px] font-semibold text-sp-ink-3"
-                  >
-                    {skill}
-                  </span>
-                ))}
+                {candidate.skills.slice(0, 6).map((skill) => {
+                  const matched = matchedSkillSet.has(skill.toLowerCase());
+                  return (
+                    <span
+                      key={skill}
+                      className={
+                        matched
+                          ? 'rounded-full bg-sp-good-soft px-2.5 py-1 text-[11px] font-semibold text-sp-good'
+                          : 'rounded-full bg-sp-bg-sunken px-2.5 py-1 text-[11px] font-semibold text-sp-ink-3'
+                      }
+                    >
+                      {matched && '✓ '}
+                      {skill}
+                    </span>
+                  );
+                })}
                 {candidate.skills.length > 6 && (
                   <span className="text-[11px] font-semibold text-sp-ink-3">
                     +{candidate.skills.length - 6} more

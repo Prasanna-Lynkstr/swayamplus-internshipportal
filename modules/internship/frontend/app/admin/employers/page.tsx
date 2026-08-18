@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/lib/auth';
-import { apiFetch } from '@/lib/api';
+import { apiFetch, downloadCsv } from '@/lib/api';
 import { resolveFileUrl } from '@/lib/files';
 import { AdminTabs } from '@/components/layout/AdminTabs';
 import { Card } from '@/components/ui/Card';
@@ -35,13 +35,31 @@ export default function AdminEmployersPage() {
   const [actionError, setActionError] = useState('');
   const [viewingEmployer, setViewingEmployer] = useState<Employer | null>(null);
 
+  // Marketing-segmentation filters — collapsed by default, same reasoning as
+  // the admin Students page's "More filters" disclosure.
+  const [showFilters, setShowFilters] = useState(false);
+  const [hqCity, setHqCity] = useState('');
+  const [industryTags, setIndustryTags] = useState('');
+  const [activation, setActivation] = useState('');
+  const [exporting, setExporting] = useState(false);
+  const [exportError, setExportError] = useState('');
+
+  const buildParams = () => {
+    const params = new URLSearchParams();
+    if (status) params.set('status', status);
+    if (q) params.set('q', q);
+    if (hqCity) params.set('hqCity', hqCity);
+    if (industryTags) params.set('industryTags', industryTags);
+    if (activation) params.set('activation', activation);
+    return params;
+  };
+
   const load = () => {
     if (!token) return;
     setLoading(true);
     setLoadError('');
-    const params = new URLSearchParams({ page: String(page) });
-    if (status) params.set('status', status);
-    if (q) params.set('q', q);
+    const params = buildParams();
+    params.set('page', String(page));
     apiFetch<PaginatedResult<Employer>>(`/admin/employers?${params.toString()}`, { token })
       .then(setResult)
       .catch(() => setLoadError('Could not load employers. Please refresh the page.'))
@@ -53,7 +71,20 @@ export default function AdminEmployersPage() {
     // Debounced so typing a search term doesn't fire a request per keystroke.
     const timeout = setTimeout(load, 300);
     return () => clearTimeout(timeout);
-  }, [token, status, q, page]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- load() reads the same state already listed here
+  }, [token, status, q, hqCity, industryTags, activation, page]);
+
+  const handleExport = async () => {
+    setExporting(true);
+    setExportError('');
+    try {
+      await downloadCsv(`/admin/employers/export?${buildParams().toString()}`, token, 'employers.csv');
+    } catch {
+      setExportError('Could not export. Please try again.');
+    } finally {
+      setExporting(false);
+    }
+  };
 
   const toggleModerationMode = async (employer: Employer) => {
     setActionError('');
@@ -118,7 +149,44 @@ export default function AdminEmployersPage() {
                   }}
                 />
               </div>
+              <Button variant="secondary" onClick={() => setShowFilters((v) => !v)}>
+                {showFilters ? 'Hide filters' : 'More filters'}
+              </Button>
+              <Button variant="secondary" disabled={exporting} onClick={handleExport}>
+                {exporting ? 'Exporting…' : 'Export CSV'}
+              </Button>
             </div>
+
+            {showFilters && (
+              <Card className="mb-4 flex flex-wrap items-end gap-3 p-4">
+                <div className="w-40">
+                  <label className="mb-1 block text-xs font-semibold text-sp-ink-3">HQ city</label>
+                  <Input value={hqCity} onChange={(e) => { setHqCity(e.target.value); setPage(1); }} />
+                </div>
+                <div className="w-48">
+                  <label className="mb-1 block text-xs font-semibold text-sp-ink-3">Industry tags</label>
+                  <Input
+                    placeholder="e.g. Fintech, EdTech"
+                    value={industryTags}
+                    onChange={(e) => { setIndustryTags(e.target.value); setPage(1); }}
+                  />
+                </div>
+                <div className="w-52">
+                  <label className="mb-1 block text-xs font-semibold text-sp-ink-3">Activation status</label>
+                  <Select value={activation} onChange={(e) => { setActivation(e.target.value); setPage(1); }}>
+                    <option value="">Any</option>
+                    <option value="never_posted">Never posted</option>
+                    <option value="zero_applicants">Posted, zero applicants</option>
+                    <option value="actively_hiring">Actively hiring (2+ live roles)</option>
+                    <option value="dormant">Dormant (30+ days quiet)</option>
+                    <option value="active">Active</option>
+                  </Select>
+                </div>
+              </Card>
+            )}
+
+            {exportError && <p className="mb-4 text-sm font-semibold text-sp-danger">{exportError}</p>}
+
             {result.items.length === 0 ? (
               <Card className="p-10 text-center text-sp-ink-3">No employers match this filter.</Card>
             ) : (
