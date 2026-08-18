@@ -525,9 +525,12 @@ export function InternshipForm({
           <>
             {!isWizard && <SectionHeading>Requirements</SectionHeading>}
             <div className="sm:col-span-2">
-              <Label htmlFor="skillTags">Skill tags (comma-separated)</Label>
+              <Label htmlFor="skillTags" required>
+                Skill tags (comma-separated)
+              </Label>
               <Input
                 id="skillTags"
+                required
                 value={form.skillTags}
                 onChange={(e) => set('skillTags', e.target.value)}
                 placeholder="React, Node.js"
@@ -622,10 +625,11 @@ export function InternshipForm({
               <Button
                 type="button"
                 variant="secondary"
-                disabled={generating || form.description.length < 20}
+                // Stubbed off for now — re-enable by restoring the original disabled condition.
+                disabled
                 onClick={generateChecklist}
               >
-                {generating ? 'Generating…' : 'Generate from description'}
+                Generate from description
               </Button>
             </div>
             <p className="mb-2 text-xs text-sp-ink-3">

@@ -233,6 +233,7 @@ export class CandidatesService {
         row,
         score: scoreStudentMatch(row.skills, preferencesById.get(row.id) ?? null, internship),
       }))
+      .filter(({ score }) => score > 0)
       .sort((a, b) => b.score - a.score || b.row.createdAt.getTime() - a.row.createdAt.getTime());
 
     const total = scored.length;

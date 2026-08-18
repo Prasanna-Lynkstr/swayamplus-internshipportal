@@ -1,5 +1,6 @@
 import { Type } from 'class-transformer';
 import {
+  ArrayMinSize,
   IsArray,
   IsBoolean,
   IsIn,
@@ -49,10 +50,10 @@ export class CreateInternshipDto {
   @IsString()
   description!: string;
 
-  @IsOptional()
   @IsArray()
+  @ArrayMinSize(1)
   @IsString({ each: true })
-  skillTags?: string[];
+  skillTags!: string[];
 
   @IsString()
   category!: string;
