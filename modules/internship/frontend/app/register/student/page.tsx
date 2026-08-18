@@ -8,23 +8,28 @@ import { OtpFlow } from '@/components/auth/OtpFlow';
 import { RegistrationProgress } from '@/components/auth/RegistrationProgress';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
-import { ProfileFieldsCard } from '@/components/student/ProfileFieldsCard';
+import { ProfileFieldsCard, type ProfilePrefill } from '@/components/student/ProfileFieldsCard';
 import { ProfileMediaCard } from '@/components/student/ProfileMediaCard';
 import { PreferencesCard } from '@/components/student/PreferencesCard';
+import { ResumeUploadStep } from '@/components/student/ResumeUploadStep';
 import type { Student } from '@/lib/types';
 
-const WIZARD_LABELS = ['Verify', 'Basic details', 'Photo & resume', 'Preferences'];
+const WIZARD_LABELS = ['Verify', 'Resume', 'Basic details', 'Photo & resume', 'Preferences'];
 
 export default function StudentRegisterPage() {
   const { user, token } = useAuth();
   const router = useRouter();
   const [verified, setVerified] = useState(false);
-  // 0 = Basic details, 1 = Photo & resume, 2 = Preferences.
+  // 0 = Resume upload, 1 = Basic details, 2 = Photo & resume, 3 = Preferences.
   const [subStep, setSubStep] = useState(0);
   // Gates "Continue" on the Photo & resume step — a resume is required for
   // profileComplete (see student-profile.util.ts on the backend), unlike the
   // photo, which is why only this one blocks moving on.
   const [hasResume, setHasResume] = useState(false);
+  // Best-effort fields extracted from the resume uploaded in step 0 — passed
+  // into ProfileFieldsCard as suggestions, never saved until the student
+  // reviews and submits that step themselves.
+  const [prefill, setPrefill] = useState<ProfilePrefill | null>(null);
 
   const isStudent = user?.role === 'student';
   // undefined = still checking, true = complete (redirecting to dashboard),
@@ -86,28 +91,40 @@ export default function StudentRegisterPage() {
           Student registration
         </span>
         <h1 className="mt-3 text-3xl font-extrabold tracking-tight text-sp-navy">
-          {subStep === 0 && 'Tell us about yourself'}
-          {subStep === 1 && 'Add your photo & resume'}
-          {subStep === 2 && "What are you looking for?"}
+          {subStep === 0 && 'Upload your resume'}
+          {subStep === 1 && 'Tell us about yourself'}
+          {subStep === 2 && 'Add your photo & resume'}
+          {subStep === 3 && "What are you looking for?"}
         </h1>
         <p className="mt-3 text-sp-ink-2">
-          {subStep === 0 && 'This helps employers understand your background when you apply.'}
-          {subStep === 1 && 'A photo and resume make your applications stand out.'}
-          {subStep === 2 && "Optional, but helps us surface internships that actually match what you want."}
+          {subStep === 0 && "We'll try to pre-fill the next step from it, so you have less to type."}
+          {subStep === 1 && 'This helps employers understand your background when you apply.'}
+          {subStep === 2 && 'A photo and resume make your applications stand out.'}
+          {subStep === 3 && "Optional, but helps us surface internships that actually match what you want."}
         </p>
       </div>
 
       {subStep === 0 && (
-        <Card className="p-6 shadow-sm shadow-black/5">
-          <ProfileFieldsCard token={token} onSaved={() => setSubStep(1)} />
-        </Card>
+        <ResumeUploadStep
+          token={token}
+          onContinue={(found) => {
+            setPrefill(found);
+            setSubStep(1);
+          }}
+        />
       )}
 
       {subStep === 1 && (
+        <Card className="p-6 shadow-sm shadow-black/5">
+          <ProfileFieldsCard token={token} prefill={prefill ?? undefined} onSaved={() => setSubStep(2)} />
+        </Card>
+      )}
+
+      {subStep === 2 && (
         <div className="flex flex-col gap-5">
-          <ProfileMediaCard token={token} onResumeChange={setHasResume} />
+          <ProfileMediaCard token={token} onResumeChange={setHasResume} hideResumeIfOnFile />
           <div className="flex items-center justify-between gap-3">
-            <Button variant="ghost" onClick={() => setSubStep(0)}>
+            <Button variant="ghost" onClick={() => setSubStep(1)}>
               ← Back
             </Button>
             <div className="text-right">
@@ -116,7 +133,7 @@ export default function StudentRegisterPage() {
                   Upload a resume to continue — employers need it to review your application.
                 </p>
               )}
-              <Button onClick={() => setSubStep(2)} disabled={!hasResume} withArrow>
+              <Button onClick={() => setSubStep(3)} disabled={!hasResume} withArrow>
                 Continue
               </Button>
             </div>
@@ -124,13 +141,13 @@ export default function StudentRegisterPage() {
         </div>
       )}
 
-      {subStep === 2 && (
+      {subStep === 3 && (
         <div className="flex flex-col gap-4">
           <Card pastel="lavender" className="p-6">
             <PreferencesCard token={token} onSaved={goToDashboard} />
           </Card>
           <div className="flex items-center justify-between">
-            <Button variant="ghost" onClick={() => setSubStep(1)}>
+            <Button variant="ghost" onClick={() => setSubStep(2)}>
               ← Back
             </Button>
             <Button variant="secondary" onClick={goToDashboard}>

@@ -1,6 +1,6 @@
 // A real multi-step sequence — numbering and a progress trail are earned
-// here, not decorative. Shared by the student (4 steps: verify, basic
-// details, photo & resume, preferences) and employer (2 steps: verify,
+// here, not decorative. Shared by the student (5 steps: verify, resume,
+// basic details, photo & resume, preferences) and employer (2 steps: verify,
 // complete profile) registration flows, so both track the same pattern.
 export function RegistrationProgress({ labels, current }: { labels: string[]; current: number }) {
   return (

@@ -10,6 +10,7 @@ import type { ApplicationStatus } from '../../database/models/index.js';
 import { STORAGE_SERVICE } from '../storage/storage.constants.js';
 import type { StorageService, UploadableFile } from '../storage/storage.types.js';
 import { TaxonomiesService } from '../taxonomies/taxonomies.service.js';
+import { ResumeParserService, type ParsedResumeFields } from './resume-parser.service.js';
 import { UpdateStudentDto } from './dto/update-student.dto.js';
 import { UpdateStudentPreferencesDto } from './dto/update-student-preferences.dto.js';
 
@@ -22,6 +23,7 @@ export class StudentsService {
     private readonly applicationModel: typeof InternshipApplication,
     @Inject(STORAGE_SERVICE) private readonly storageService: StorageService,
     private readonly taxonomiesService: TaxonomiesService,
+    private readonly resumeParserService: ResumeParserService,
   ) {}
 
   async getByUserId(userId: number): Promise<Student> {
@@ -79,6 +81,21 @@ export class StudentsService {
     student.resumeUrl = await this.storageService.save(file, 'resumes');
     await student.save();
     return student;
+  }
+
+  // Used only by the upload-first registration step — saves the resume
+  // exactly like saveResume above, plus runs best-effort heuristic
+  // extraction over it. Kept as its own method (not a flag on saveResume)
+  // so a later resume *replacement* from an already-filled-in profile never
+  // accidentally re-triggers parsing and overwrites fields the student has
+  // since edited by hand.
+  async saveResumeAndParse(
+    userId: number,
+    file: UploadableFile,
+  ): Promise<{ student: Student; parsed: ParsedResumeFields }> {
+    const student = await this.saveResume(userId, file);
+    const parsed = await this.resumeParserService.parse(file.buffer, file.mimeType);
+    return { student, parsed };
   }
 
   async savePhoto(userId: number, file: UploadableFile): Promise<Student> {

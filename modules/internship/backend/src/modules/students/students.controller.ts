@@ -81,6 +81,32 @@ export class StudentsController {
     });
   }
 
+  // Used only by the upload-first step on /register/student — saves the
+  // resume (same as POST /me/resume above) and also returns best-effort
+  // extracted fields for the registration form to pre-fill. Deliberately a
+  // separate endpoint rather than a query flag on the one above, so a later
+  // resume replacement from the student dashboard never re-triggers parsing
+  // over an already-filled-in profile.
+  @Post('me/resume/parse')
+  @UseInterceptors(
+    FileInterceptor('file', {
+      storage: memoryStorage(),
+      limits: { fileSize: Number(process.env.MAX_UPLOAD_SIZE_MB ?? 10) * 1024 * 1024 },
+      fileFilter: createMimeTypeFilter(RESUME_MIME_TYPES),
+    }),
+  )
+  async uploadAndParseResume(
+    @CurrentUser() user: AuthenticatedUser,
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    const { student, parsed } = await this.studentsService.saveResumeAndParse(user.sub, {
+      buffer: file.buffer,
+      originalName: file.originalname,
+      mimeType: file.mimetype,
+    });
+    return { resumeUrl: student.resumeUrl, parsed };
+  }
+
   @Post('me/photo')
   @UseInterceptors(
     FileInterceptor('file', {

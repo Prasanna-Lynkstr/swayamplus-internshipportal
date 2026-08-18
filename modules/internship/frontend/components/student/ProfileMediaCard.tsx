@@ -13,12 +13,26 @@ import type { Student } from '@/lib/types';
 export function ProfileMediaCard({
   token,
   onResumeChange,
+  hideResumeIfOnFile = false,
 }: {
   token: string | null;
   /** Fired whenever the fetched/uploaded resume state changes — lets a
    * wizard-style caller gate "Continue" on a resume actually being on file
    * (resume is required for profileComplete — see student-profile.util.ts). */
   onResumeChange?: (hasResume: boolean) => void;
+  /**
+   * Used by the registration wizard, where the resume was already uploaded
+   * in its own earlier step — showing a second "Choose file" here would
+   * just be a confusing duplicate of that step. Hides the Resume card only
+   * once this component's own fetch confirms a resume is actually on file
+   * (checked here, not passed in from the wizard's own state, so there's no
+   * one-render lag where the card flashes before disappearing) — a student
+   * who *skipped* the earlier step still sees it, since they still need a
+   * way to satisfy that step's "resume required to continue" gate. The
+   * student dashboard (the only other caller) never passes this, since
+   * there's no earlier upload step to fall back on there.
+   */
+  hideResumeIfOnFile?: boolean;
 }) {
   const [student, setStudent] = useState<Student | null>(null);
   const [resumeStatus, setResumeStatus] = useState<'idle' | 'uploading' | 'done' | 'error'>('idle');
@@ -44,6 +58,8 @@ export function ProfileMediaCard({
   }, [student]);
 
   if (!student) return <p className="text-sm text-sp-ink-3">Loading…</p>;
+
+  const showResumeSection = !hideResumeIfOnFile || !student.resumeUrl;
 
   const uploadResume = async (file: File, input: HTMLInputElement) => {
     setResumeStatus('uploading');
@@ -165,6 +181,7 @@ export function ProfileMediaCard({
         </div>
       </Card>
 
+      {showResumeSection && (
       <Card className="p-6">
         <h2 className="mb-2 text-lg font-bold text-sp-navy">Resume</h2>
         <p className="mb-4 text-sm text-sp-ink-2">
@@ -214,6 +231,7 @@ export function ProfileMediaCard({
           </p>
         )}
       </Card>
+      )}
 
       {confirmingRemovePhoto && (
         <ConfirmToast

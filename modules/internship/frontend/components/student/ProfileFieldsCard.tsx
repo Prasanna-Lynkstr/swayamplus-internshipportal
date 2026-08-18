@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { apiFetch, ApiError } from '@/lib/api';
 import { Button } from '@/components/ui/Button';
 import { Input, Label, Select } from '@/components/ui/Input';
+import { StudentTermsModal } from './StudentTermsModal';
 import type { Student } from '@/lib/types';
 
 const GRADUATION_YEAR_SPAN = 5;
@@ -20,13 +21,33 @@ function graduationYearOptions(): number[] {
 // initial profile completion (register/student) and for later edits
 // (student/dashboard) without either caller having to thread profile state
 // through — same pattern PreferencesCard already used before this refactor.
+// Best-effort fields the upload-first resume step can suggest — a subset of
+// Student, since city/linkedinUrl/etc. aren't something resume parsing
+// attempts to extract.
+export interface ProfilePrefill {
+  fullName?: string | null;
+  phone?: string | null;
+  collegeName?: string | null;
+  course?: string | null;
+  graduationYear?: number | null;
+  skills?: string[];
+}
+
 export function ProfileFieldsCard({
   token,
   onSaved,
+  prefill,
 }: {
   token: string | null;
   /** Called after a successful save — lets a wizard-style caller auto-advance. */
   onSaved?: () => void;
+  /**
+   * Best-effort suggested values (e.g. from resume parsing) to pre-fill
+   * empty fields with on first load — never overwrites a field the fetched
+   * profile already has a real value for. Still fully editable; nothing
+   * here is saved until the student submits this form themselves.
+   */
+  prefill?: ProfilePrefill;
 }) {
   const [profile, setProfile] = useState<Partial<Student>>({});
   const [skillsText, setSkillsText] = useState('');
@@ -35,14 +56,25 @@ export function ProfileFieldsCard({
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState('');
   const [acceptTerms, setAcceptTerms] = useState(false);
+  const [termsOpen, setTermsOpen] = useState(false);
 
   useEffect(() => {
     if (!token) return;
     apiFetch<Student>('/students/me', { token }).then((s) => {
-      setProfile(s);
-      setSkillsText((s.skills ?? []).join(', '));
+      const merged: Partial<Student> = {
+        ...s,
+        fullName: s.fullName || prefill?.fullName || null,
+        phone: s.phone || prefill?.phone || null,
+        collegeName: s.collegeName || prefill?.collegeName || null,
+        course: s.course || prefill?.course || null,
+        graduationYear: s.graduationYear || prefill?.graduationYear || null,
+      };
+      const skills = s.skills.length > 0 ? s.skills : prefill?.skills ?? [];
+      setProfile(merged);
+      setSkillsText(skills.join(', '));
       setLoaded(true);
     });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- prefill is a one-shot initial value, not a live prop to re-sync on
   }, [token]);
 
   if (!loaded) return <p className="text-sm text-sp-ink-3">Loading profile…</p>;
@@ -272,7 +304,22 @@ export function ProfileFieldsCard({
             className="mt-1"
           />
           <span>
-            I accept the Terms &amp; Conditions of the SWAYAM Plus internship module.
+            I accept the{' '}
+            <button
+              type="button"
+              onClick={(e) => {
+                // Stop this from bubbling to the enclosing <label> — that
+                // would otherwise also toggle the checkbox as a side effect
+                // of clicking this link.
+                e.preventDefault();
+                e.stopPropagation();
+                setTermsOpen(true);
+              }}
+              className="font-semibold text-sp-blue underline underline-offset-2 hover:text-sp-navy"
+            >
+              Terms &amp; Conditions
+            </button>{' '}
+            of the SWAYAM Plus internship module.
             {profile.acceptedTermsAt && (
               <span className="block text-xs text-sp-ink-3">
                 Accepted on{' '}
@@ -286,6 +333,8 @@ export function ProfileFieldsCard({
           </span>
         </label>
       </div>
+
+      <StudentTermsModal open={termsOpen} onClose={() => setTermsOpen(false)} />
 
       {error && <p className="sm:col-span-2 text-sm font-semibold text-sp-danger">{error}</p>}
       {saved && <p className="sm:col-span-2 text-sm font-semibold text-sp-good">Profile saved!</p>}
