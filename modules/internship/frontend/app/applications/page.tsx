@@ -1,7 +1,8 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { Suspense, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { useAuth } from '@/lib/auth';
 import { apiFetch } from '@/lib/api';
 import { Card } from '@/components/ui/Card';
@@ -9,24 +10,49 @@ import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { ApplicationStepper } from '@/components/applications/ApplicationStepper';
 import { APPLICATION_STATUS_TONE, STATUS_TONE_BORDER } from '@/lib/status-labels';
-import type { ApplicationStatus, InternshipApplication, PaginatedResult } from '@/lib/types';
+import type { InternshipApplication, PaginatedResult } from '@/lib/types';
 
-const ACTIVE_STATUSES: ApplicationStatus[] = ['applied', 'shortlisted', 'interviewing'];
+// Split into 'applied' + 'in_progress' (rather than one combined 'active')
+// specifically so this matches the student dashboard's own four stat cards
+// exactly — each dashboard count links here with a `filter` query param, and
+// a mismatched grouping would show a different number than what was clicked.
+const IN_PROGRESS_STATUSES = ['shortlisted', 'interviewing'] as const;
 
-type FilterKey = 'all' | 'active' | 'offered' | 'rejected' | 'withdrawn';
+type FilterKey = 'all' | 'applied' | 'in_progress' | 'offered' | 'rejected' | 'withdrawn';
 
 const FILTERS: { key: FilterKey; label: string }[] = [
   { key: 'all', label: 'All' },
-  { key: 'active', label: 'Active' },
+  { key: 'applied', label: 'Awaiting response' },
+  { key: 'in_progress', label: 'In progress' },
   { key: 'offered', label: 'Offered' },
   { key: 'rejected', label: 'Rejected' },
   { key: 'withdrawn', label: 'Withdrawn' },
 ];
 
+function isFilterKey(value: string | null): value is FilterKey {
+  return FILTERS.some((f) => f.key === value);
+}
+
+// useSearchParams() requires a Suspense boundary above it (Next.js bails
+// prerendering otherwise) — this outer component is just that wrapper; all
+// the real page logic stays in MyApplicationsPageContent below.
 export default function MyApplicationsPage() {
+  return (
+    <Suspense fallback={<p className="text-sp-ink-3">Loading…</p>}>
+      <MyApplicationsPageContent />
+    </Suspense>
+  );
+}
+
+function MyApplicationsPageContent() {
   const { user, token } = useAuth();
+  const searchParams = useSearchParams();
+  const initialFilter = searchParams.get('filter');
   const [applications, setApplications] = useState<InternshipApplication[]>([]);
-  const [filter, setFilter] = useState<FilterKey>('all');
+  // Read once from the URL a caller (the dashboard's stat cards) may have
+  // set — not kept in sync on every chip click, since this only needs to
+  // land the visitor on the right subset, not maintain shareable filter URLs.
+  const [filter, setFilter] = useState<FilterKey>(isFilterKey(initialFilter) ? initialFilter : 'all');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -55,16 +81,25 @@ export default function MyApplicationsPage() {
 
   const stats = useMemo(() => {
     const total = applications.length;
-    const active = applications.filter((a) => ACTIVE_STATUSES.includes(a.status)).length;
+    // "In progress" here matches the dashboard's own definition (shortlisted
+    // or interviewing) — not every non-terminal status — so this number
+    // always agrees with what the in_progress filter/chip actually shows.
+    const inProgress = applications.filter((a) =>
+      IN_PROGRESS_STATUSES.includes(a.status as (typeof IN_PROGRESS_STATUSES)[number]),
+    ).length;
     const offered = applications.filter((a) => a.status === 'offered').length;
     const decided = applications.filter((a) => a.status === 'offered' || a.status === 'rejected').length;
     const responseRate = total > 0 ? Math.round((decided / total) * 100) : 0;
-    return { total, active, offered, responseRate };
+    return { total, inProgress, offered, responseRate };
   }, [applications]);
 
   const filtered = useMemo(() => {
     if (filter === 'all') return applications;
-    if (filter === 'active') return applications.filter((a) => ACTIVE_STATUSES.includes(a.status));
+    if (filter === 'in_progress') {
+      return applications.filter((a) =>
+        IN_PROGRESS_STATUSES.includes(a.status as (typeof IN_PROGRESS_STATUSES)[number]),
+      );
+    }
     return applications.filter((a) => a.status === filter);
   }, [applications, filter]);
 
@@ -115,7 +150,7 @@ export default function MyApplicationsPage() {
             <Card pastel="peach" className="p-5">
               <p className="text-xs font-bold uppercase tracking-wide text-sp-ink-2">In progress</p>
               <p className="mt-1.5 font-mono text-2xl font-bold tabular-nums text-sp-navy">
-                {stats.active}
+                {stats.inProgress}
               </p>
             </Card>
             <Card pastel="mint" className="p-5">

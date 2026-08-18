@@ -172,28 +172,48 @@ export default function StudentDashboardPage() {
       ) : stats ? (
         <>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <Card pastel="yellow" className="p-6">
-              <p className="text-sm font-bold uppercase tracking-wide text-sp-ink-2">Applications</p>
-              <p className="mt-2 text-3xl font-extrabold text-sp-navy">{stats.applications.total}</p>
-              <p className="mt-1 text-xs font-semibold text-sp-ink-3">Total submitted</p>
-            </Card>
-            <Card pastel="peach" className="p-6">
-              <p className="text-sm font-bold uppercase tracking-wide text-sp-ink-2">In progress</p>
-              <p className="mt-2 text-3xl font-extrabold text-sp-navy">
-                {stats.applications.shortlisted + stats.applications.interviewing}
-              </p>
-              <p className="mt-1 text-xs font-semibold text-sp-ink-3">Shortlisted or interviewing</p>
-            </Card>
-            <Card pastel="lavender" className="p-6">
-              <p className="text-sm font-bold uppercase tracking-wide text-sp-ink-2">Offers</p>
-              <p className="mt-2 text-3xl font-extrabold text-sp-navy">{stats.applications.offered}</p>
-              <p className="mt-1 text-xs font-semibold text-sp-ink-3">Offers received</p>
-            </Card>
-            <Card pastel="mint" className="p-6">
-              <p className="text-sm font-bold uppercase tracking-wide text-sp-ink-2">Awaiting response</p>
-              <p className="mt-2 text-3xl font-extrabold text-sp-navy">{stats.applications.applied}</p>
-              <p className="mt-1 text-xs font-semibold text-sp-ink-3">Applied, not yet reviewed</p>
-            </Card>
+            <Link href="/applications?filter=all" className="block">
+              <Card
+                pastel="yellow"
+                className="p-6 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md"
+              >
+                <p className="text-sm font-bold uppercase tracking-wide text-sp-ink-2">Applications</p>
+                <p className="mt-2 text-3xl font-extrabold text-sp-navy">{stats.applications.total}</p>
+                <p className="mt-1 text-xs font-semibold text-sp-ink-3">Total submitted</p>
+              </Card>
+            </Link>
+            <Link href="/applications?filter=in_progress" className="block">
+              <Card
+                pastel="peach"
+                className="p-6 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md"
+              >
+                <p className="text-sm font-bold uppercase tracking-wide text-sp-ink-2">In progress</p>
+                <p className="mt-2 text-3xl font-extrabold text-sp-navy">
+                  {stats.applications.shortlisted + stats.applications.interviewing}
+                </p>
+                <p className="mt-1 text-xs font-semibold text-sp-ink-3">Shortlisted or interviewing</p>
+              </Card>
+            </Link>
+            <Link href="/applications?filter=offered" className="block">
+              <Card
+                pastel="lavender"
+                className="p-6 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md"
+              >
+                <p className="text-sm font-bold uppercase tracking-wide text-sp-ink-2">Offers</p>
+                <p className="mt-2 text-3xl font-extrabold text-sp-navy">{stats.applications.offered}</p>
+                <p className="mt-1 text-xs font-semibold text-sp-ink-3">Offers received</p>
+              </Card>
+            </Link>
+            <Link href="/applications?filter=applied" className="block">
+              <Card
+                pastel="mint"
+                className="p-6 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md"
+              >
+                <p className="text-sm font-bold uppercase tracking-wide text-sp-ink-2">Awaiting response</p>
+                <p className="mt-2 text-3xl font-extrabold text-sp-navy">{stats.applications.applied}</p>
+                <p className="mt-1 text-xs font-semibold text-sp-ink-3">Applied, not yet reviewed</p>
+              </Card>
+            </Link>
           </div>
 
           {recommended.length > 0 && (
