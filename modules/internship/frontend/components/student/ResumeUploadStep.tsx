@@ -22,11 +22,10 @@ interface ParseResumeResponse {
   };
 }
 
-// First step of student registration — upload once, and the extracted
-// fields ride along as a `prefill` into the next step (ProfileFieldsCard),
-// never saved directly. Skipping (no upload at all) is just "Continue" with
-// nothing found — the resume itself can still be added later from the
-// Photo & resume step, same as before this feature existed.
+// First step of student registration — resume upload is mandatory here
+// (Continue is gated on a successful upload), and the extracted fields ride
+// along as a `prefill` into the next step (ProfileFieldsCard), never saved
+// directly.
 export function ResumeUploadStep({
   token,
   onContinue,
@@ -95,8 +94,7 @@ export function ResumeUploadStep({
         <h2 className="mb-2 text-lg font-bold text-sp-navy">Upload your resume</h2>
         <p className="mb-4 text-sm text-sp-ink-2">
           We&apos;ll try to pre-fill the next step from it — you can review and correct anything
-          before saving. No resume handy? Click Continue and fill in the next step by hand; you can
-          add one later too.
+          before saving.
         </p>
         <input
           ref={inputRef}
@@ -139,8 +137,13 @@ export function ResumeUploadStep({
         )}
       </Card>
 
-      <div className="flex justify-end">
-        <Button type="button" onClick={() => onContinue(prefill)} disabled={status === 'uploading'} withArrow>
+      <div className="flex items-center justify-end gap-3">
+        {status !== 'done' && (
+          <p className="text-xs font-semibold text-sp-ink-3">
+            Upload a resume to continue — employers need it to review your application.
+          </p>
+        )}
+        <Button type="button" onClick={() => onContinue(prefill)} disabled={status !== 'done'} withArrow>
           Continue
         </Button>
       </div>
