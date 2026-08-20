@@ -491,3 +491,51 @@ rather than assumed:
   assumed from a code read): multi-network/load performance, screen-reader
   behavior beyond the one keyboard-focus gap already found, and session-
   expiry/concurrent-session behavior.
+
+---
+
+## Fresher feedback round 3 — live demo, intern-demo.lynkstr.com (2026-08-20)
+
+Positive feedback on filtering, sort-by-stipend/deadline (both already
+covered above), and specifically called out the "submit a request" feature
+as a differentiator — confirmed real: `RequestInternshipForm` posts to
+`/internship-requests` when a student can't find a category they want,
+surfaced both inline on `/internships/browse` and in its empty-state
+fallback (`app/internships/browse/page.tsx:205,234`). Two flagged issues,
+checked against the live site rather than assumed:
+
+- **"Some buttons and links could benefit from clearer labeling"** — too
+  vague to map to one spot with confidence, but this restates ground
+  already covered earlier in this doc rather than surfacing something new:
+  nav says "login," destination pages say "registration" (Cross-cutting);
+  dead footer `/#faq`/`/#contact`/`/#terms`/`/#privacy` links (priority #6);
+  inert dark-mode/language controls (Cross-cutting); "Post an internship"
+  shown to already-logged-in students (Student journey, Low). Not
+  re-added as new findings.
+- **"A few pages take slightly longer to load"** — checked raw response
+  time against the live URL directly (`curl -w time_total`): homepage,
+  `/internships`, `/internships/browse`, an internship detail page, and the
+  `/api/v1/internships` endpoint itself all returned in well under 150ms
+  from here, so this isn't backend/DB latency. The more likely explanation
+  is client-side: `/student/dashboard` is a `'use client'` page with **two
+  sequential round trips** before it renders anything real —
+  `app/student/dashboard/page.tsx:69-77` fetches `/students/me` alone in
+  its own `useEffect`, and the second `useEffect` (`:79-98`) explicitly
+  waits for that to resolve (`missingFields !== null` gate) before firing
+  its `Promise.all` of three more endpoints (dashboard stats, applications,
+  recommended internships) — on top of `useSavedInternships`/
+  `useSavedSearches` each firing their own independent fetch on mount. On a
+  fast connection (like this check) that's invisible; on a slower mobile
+  connection it compounds into a real, noticeable delay before the
+  dashboard shows anything but a loading state. **Fixed:** collapsed the two
+  `useEffect`s into one — the `/students/me` call and the `Promise.all` of
+  the other three now fire together instead of the second waiting on the
+  first (`app/student/dashboard/page.tsx:69-98`). The "complete your
+  profile" branch still renders as soon as `/students/me` alone resolves
+  (unchanged behavior/speed for that path); the profile-complete path now
+  starts all four requests concurrently instead of paying two sequential
+  round trips. Verified live: captured `Network.requestWillBeSent` timing
+  via CDP before/after — all four `/api/v1/...` calls (plus
+  `/saved-searches/me`) now fire within the same ~1ms window instead of a
+  visible first-batch/second-batch gap, and both the complete-profile and
+  incomplete-profile dashboard states still render correctly.

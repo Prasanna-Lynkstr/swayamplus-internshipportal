@@ -66,20 +66,25 @@ export default function StudentDashboardPage() {
   const { saved } = useSavedInternships();
   const { savedSearches, remove: removeSavedSearch } = useSavedSearches();
 
+  // Both requests below fire together, not one gated on the other's
+  // response — the profile-completeness check and the dashboard content
+  // are independent data, so serializing them into two round trips (check
+  // profile, *then* fetch stats/applications/recommended) only added
+  // latency with no benefit. The "complete your profile" branch below still
+  // renders as soon as the /students/me call alone resolves; it just no
+  // longer blocks the other three calls from starting at the same time.
   useEffect(() => {
     if (!token) return;
+    setLoading(true);
+    setError('');
+
     apiFetch<Student>('/students/me', { token })
       .then((student) => {
         setStudentName(student.fullName ?? '');
         setMissingFields(student.profileComplete ? null : student.missingFields ?? []);
       })
       .catch(() => setMissingFields(null));
-  }, [token]);
 
-  useEffect(() => {
-    if (missingFields === undefined || missingFields !== null || !token) return;
-    setLoading(true);
-    setError('');
     Promise.all([
       apiFetch<StudentDashboardStats>('/students/me/dashboard', { token }),
       apiFetch<PaginatedResult<InternshipApplication>>('/applications/me', { token }),
@@ -95,7 +100,7 @@ export default function StudentDashboardPage() {
       })
       .catch(() => setError('Could not load your dashboard. Please refresh the page.'))
       .finally(() => setLoading(false));
-  }, [token, missingFields]);
+  }, [token]);
 
   if (missingFields === undefined) {
     return <p className="text-sp-ink-3">Loading…</p>;
