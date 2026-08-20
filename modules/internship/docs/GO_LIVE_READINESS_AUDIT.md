@@ -239,3 +239,153 @@ and fixed as part of that same audit pass.)
    read traffic from Postgres before it's actually needed.
 8. **Relevance-sort in-memory pattern** (1b) — not urgent at 500 listings;
    revisit alongside item 3 if/when listing volume grows well past that.
+
+---
+
+## 5. Live-deployment audit — `intern-demo.lynkstr.com/internships/browse` (2026-08-20)
+
+Scope: performance and security, checked directly against the running
+public demo — response headers, TLS, a full resource waterfall via headless
+Chrome/CDP, and a couple of live-fire checks (OTP request/verify, OTP
+throttle) — not re-derived from source alone. One throwaway account was
+created in the process: `perf-sec-audit-check@example.com` (student role,
+empty profile, live database) — harmless, but flagging it rather than
+leaving an unexplained row; safe to delete or ignore.
+
+### Performance
+
+- **Page weight itself is genuinely fine — not a finding.** Full waterfall
+  for `/internships/browse`: 30 requests, 273.6 KB transferred, zero
+  console errors/exceptions. Worth stating plainly since it would be easy
+  to assume a Next.js app this size is heavy; it isn't.
+- **No HTTP/2 — real, fixable.** TLS is healthy (valid Let's Encrypt cert,
+  TLS 1.3, strong cipher), but `curl`'s ALPN negotiation and every resource
+  in the waterfall came back `http/1.1`. nginx isn't listening with `http2`
+  enabled. With 30 requests on one page, HTTP/1.1's per-origin connection
+  cap (~6 in most browsers) means real queuing that HTTP/2 multiplexing
+  over one connection would remove — this compounds specifically on the
+  higher-latency mobile connections the "pages feel slow" feedback (round 3
+  above) was already pointing at. Fix is nginx-config-only: add `http2 on;`
+  (or `listen 443 ssl http2;` depending on the nginx version) to the site
+  block and reload — no app code change.
+- **API responses aren't compressed at all.** `GET /api/v1/internships`
+  (used by the dashboard, applications page, saved-searches, etc. — not by
+  `/internships/browse` itself, which fetches server-side and embeds the
+  result in the initial HTML/RSC payload) returned a 26 KB JSON body for
+  just 12 rows with zero `Content-Encoding`, even when the request declared
+  `Accept-Encoding: gzip, br`. Confirmed in source: `src/main.ts` wires
+  `helmet()` and CORS but never a compression middleware, and `compression`
+  isn't in `package.json` at all. The frontend's own HTML/JS *is* served
+  gzip'd (nginx or Next.js handles that layer already) — this gap is
+  specifically the NestJS API responses. Fix: `app.use(compression())`
+  right alongside the existing `app.use(helmet())` in `main.ts` — a few
+  lines, and JSON compresses well (typically 70-80% smaller).
+- Minor: the browse page fired 16 `text/x-component` RSC prefetch requests
+  (9.6 KB total) for the visible listing cards' detail-page links — this is
+  normal Next.js `<Link>` viewport-prefetch behavior, not a bug, but worth
+  knowing it's part of the request count if that number looks high in devtools.
+
+### Security
+
+- **OTPs are still returned in plaintext in the live API response —
+  confirmed today, not just inferred from source (already tracked as 2a
+  above; re-verified because this is the single most severe item and
+  worth confirming it's still live).** `POST /auth/otp/request` for a
+  freshly-made-up identifier returned `{"otp":"106944"}` directly in the
+  JSON body. Since there's no ownership check on the identifier (no real
+  email is ever sent), **anyone can authenticate as any email address on
+  this platform today** without owning that inbox — this is a live,
+  exploitable gap on the public demo right now, not a theoretical one.
+  Same fix as before: configure real SMTP and flip `NODE_ENV=production`.
+- **Good news, confirmed working:** the per-identifier OTP throttle is
+  actually enforcing live — 4 rapid `POST /auth/otp/request` calls for the
+  same identifier succeeded (`201`), the 5th and 6th both got `429`. The
+  gap is specifically the *global* rate limiter across different
+  identifiers (1c/2c above), not this per-identifier one, which works as
+  designed.
+- **`helmet()`'s header set only reaches the API, not the pages themselves
+  — new finding, not in section 2.** `GET /api/v1/internships` comes back
+  with a full, solid header set (`Content-Security-Policy`,
+  `Strict-Transport-Security`, `X-Content-Type-Options`, `X-Frame-Options`,
+  `Cross-Origin-Opener-Policy`, etc.) — `helmet()` is doing its job. But
+  `GET /internships/browse` itself (the actual HTML a browser renders) has
+  **none of these** — no CSP, no `X-Frame-Options`, no
+  `X-Content-Type-Options`. `Strict-Transport-Security` happens to reach
+  the page too only because browsers apply HSTS per-*origin* once seen on
+  any same-origin response — but CSP and X-Frame-Options don't work that
+  way; they're evaluated per-response. Concretely, `/login`,
+  `/internships/[id]`'s apply form, and every other page can currently be
+  framed in a third-party iframe with no `X-Frame-Options`/CSP
+  `frame-ancestors` stopping it — a real clickjacking surface on the pages
+  that actually matter (auth, apply), not just the JSON API. Fix: Next.js
+  supports the same header set via `next.config.ts`'s `headers()` function
+  (or add them once at the nginx layer so both the frontend and the API
+  proxy inherit them) — this is the one item from this section worth
+  prioritizing alongside the OTP fix, since it's currently a page-level gap
+  disguised as "already handled" by the API's good headers.
+- **Version/framework banners leak for free.** `Server: nginx/1.18.0
+  (Ubuntu)` and `X-Powered-By: Next.js` are both present on every response.
+  Neither is exploitable by itself, but both hand a would-be attacker a
+  known-CVE lookup for free. Fix: `server_tokens off;` in the nginx config,
+  `poweredByHeader: false` in `next.config.ts`.
+- **Checked and clean, not assumed:** `/docs` and `/api/v1/docs` (Swagger)
+  return `404` — not publicly reachable. `/.env` returns `404`. No stray
+  `discoverable_to_employers`-style leaked debug info observed.
+- Low priority: no real `robots.txt` (Next.js serves its own 404 page for
+  the path) — the actual 404 page does carry `<meta name="robots"
+  content="noindex">`, so the intent not to be indexed already exists, just
+  not via the conventional file. Not a security issue, cosmetic at most.
+
+### Net-new punch list from this pass (ordered)
+
+1. **Fixed — security headers on the frontend's own page responses.**
+   `next.config.ts` now sets CSP, `X-Frame-Options: DENY`,
+   `X-Content-Type-Options`, `Referrer-Policy`, `Strict-Transport-Security`,
+   and `Permissions-Policy` on every page response via Next's `headers()`
+   config (the simpler, non-nonce approach documented in
+   `node_modules/next/dist/docs/01-app/02-guides/content-security-policy.md`
+   — a nonce-based CSP would force every page into dynamic rendering
+   app-wide just to close this one gap). `frame-ancestors 'none'` +
+   `X-Frame-Options: DENY` closes the clickjacking gap on `/login`, the
+   apply flow, and every other page. `script-src`/`style-src` needed
+   `'unsafe-inline'` (Next injects its own inline hydration scripts/styles;
+   this is the same tradeoff Next's own docs accept for the config-level
+   approach), and `connect-src` allows the dev-only cross-origin backend
+   port in development while staying `'self'`-only in production (where
+   nginx already proxies `/api/v1` under the same origin). Verified live via
+   CDP: page renders and functions identically, zero console errors or CSP
+   violations, in both dev mode (with `'unsafe-eval'` for React's dev-mode
+   `eval`-based error reconstruction) and against the built dev server.
+2. **Fixed — `app.use(compression())` in `main.ts`,** right alongside the
+   existing `app.use(helmet())`. Verified live: a `GET /api/v1/internships`
+   request with `Accept-Encoding: gzip` now comes back with
+   `Content-Encoding: gzip` (a `curl -I`/HEAD request won't show this —
+   compression only runs on an actual response body).
+3. **Not done this pass — enable HTTP/2 in nginx.** Config-only
+   (`deploy/nginx/swayamplus.conf` + reload), but touches the live nginx
+   config directly rather than app code shipped through the normal
+   redeploy path — left for a deliberate, separate change.
+4. **Partially fixed.** `poweredByHeader: false` is now set in
+   `next.config.ts` (confirmed live: `X-Powered-By` header gone).nginx's
+   `server_tokens off;` is still outstanding — same reasoning as item 3,
+   a direct nginx-config change rather than an app-code one.
+5. Everything else from section 2 (OTP plaintext, non-httpOnly cookie, no
+   global rate limit) still applies exactly as documented there — this
+   pass re-confirmed 2a and the OTP throttle live rather than superseding
+   any of it.
+
+**Bug found and fixed while verifying the above live:** the new
+`computeMatchPercent` (added earlier the same day for the "surface match
+score" feature) unconditionally counted a listing's own `skillTags.length`
+toward the denominator, even when the requester had zero skills recorded —
+including anonymous, logged-out visitors. Loading `/internships/browse`
+without auth (a check this pass's live-verification step happened to run,
+where the earlier same-day testing had only ever used an authenticated
+seeded student) showed **every card reading "0% match"**, which is
+misleading — there's no student to be 0% or 100% matched against. Fixed by
+gating the skills dimension on `studentSkills.length > 0`, the same
+"excluded from the denominator, not counted as a miss" rule every other
+dimension already followed (`match-score.util.ts`). Re-verified both paths
+live: anonymous now correctly returns `matchPercent: null` (no badge
+renders), and the same authenticated seeded student still gets real,
+varying percentages.

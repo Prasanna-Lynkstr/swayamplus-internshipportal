@@ -80,14 +80,25 @@ export function computeMatchPercent(
     'skillTags' | 'category' | 'mode' | 'employmentType' | 'stipendMin' | 'stipendMax' | 'location'
   >,
 ): number | null {
-  let earned = matchedSkillTags(studentSkills, internship.skillTags).length;
-  let possible = internship.skillTags.length;
+  let earned = 0;
+  let possible = 0;
 
   const addDimension = (isPreferenceSet: boolean, weight: number, isMatch: boolean) => {
     if (!isPreferenceSet) return;
     possible += weight;
     if (isMatch) earned += weight;
   };
+
+  // Only counts if the student side actually has skills to compare — an
+  // anonymous visitor or a real student who's never filled in skills has
+  // nothing to score here, the same "excluded from the denominator, not
+  // counted as a miss" rule every other dimension below follows. Partial
+  // credit (not all-or-nothing like addDimension), so handled directly
+  // rather than through it.
+  if (studentSkills.length > 0) {
+    possible += internship.skillTags.length;
+    earned += matchedSkillTags(studentSkills, internship.skillTags).length;
+  }
 
   if (preferences) {
     addDimension(
