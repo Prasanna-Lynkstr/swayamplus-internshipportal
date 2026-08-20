@@ -11,6 +11,7 @@ import { ProfileFieldsCard } from '@/components/student/ProfileFieldsCard';
 import { ProfileMediaCard } from '@/components/student/ProfileMediaCard';
 import { PreferencesCard } from '@/components/student/PreferencesCard';
 import { InternshipCard } from '@/components/internships/InternshipCard';
+import { ApplicationStepper } from '@/components/applications/ApplicationStepper';
 import { useSavedInternships } from '@/lib/useSavedInternships';
 import { useSavedSearches } from '@/lib/useSavedSearches';
 import { buildInternshipsHref } from '@/lib/internshipFilters';
@@ -285,33 +286,41 @@ export default function StudentDashboardPage() {
               </Card>
             ) : (
               <div className="flex flex-col gap-4">
-                {recent.map((app) => (
-                  <Card
-                    key={app.id}
-                    className={`flex flex-wrap items-center justify-between gap-4 p-6 ${STATUS_TONE_BORDER[APPLICATION_STATUS_TONE[app.status]]}`}
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-sp-md bg-sp-bg-sunken text-sm font-black text-sp-ink-2">
-                        {(app.internship?.employer?.organizationName ?? 'O').charAt(0).toUpperCase()}
-                      </div>
-                      <div>
-                        <div className="mb-1 flex items-center gap-2">
-                          <Link
-                            href={`/internships/${app.internshipId}`}
-                            className="font-bold text-sp-navy hover:underline"
-                          >
-                            {app.internship?.title ?? 'Internship'}
-                          </Link>
-                          <Badge tone={APPLICATION_STATUS_TONE[app.status]}>{app.status}</Badge>
+                {recent.map((app) => {
+                  const isTerminal = app.status === 'rejected' || app.status === 'withdrawn';
+                  return (
+                    <Card
+                      key={app.id}
+                      className={`flex flex-col gap-4 p-6 sm:flex-row sm:items-center sm:justify-between ${STATUS_TONE_BORDER[APPLICATION_STATUS_TONE[app.status]]}`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-sp-md bg-sp-bg-sunken text-sm font-black text-sp-ink-2">
+                          {(app.internship?.employer?.organizationName ?? 'O').charAt(0).toUpperCase()}
                         </div>
-                        <p className="text-sm text-sp-ink-3">
-                          {app.internship?.employer?.organizationName} · Applied{' '}
-                          {new Date(app.createdAt).toLocaleDateString('en-IN')}
-                        </p>
+                        <div>
+                          <div className="mb-1 flex items-center gap-2">
+                            <Link
+                              href={`/internships/${app.internshipId}`}
+                              className="font-bold text-sp-navy hover:underline"
+                            >
+                              {app.internship?.title ?? 'Internship'}
+                            </Link>
+                            {isTerminal && <Badge tone={APPLICATION_STATUS_TONE[app.status]}>{app.status}</Badge>}
+                          </div>
+                          <p className="text-sm text-sp-ink-3">
+                            {app.internship?.employer?.organizationName} · Applied{' '}
+                            {new Date(app.createdAt).toLocaleDateString('en-IN')}
+                          </p>
+                        </div>
                       </div>
-                    </div>
-                  </Card>
-                ))}
+                      {!isTerminal && (
+                        <div className="overflow-x-auto sm:pl-2">
+                          <ApplicationStepper status={app.status} />
+                        </div>
+                      )}
+                    </Card>
+                  );
+                })}
               </div>
             )}
           </div>

@@ -283,3 +283,121 @@ students, requests, interest-registrations, and the `AdminTabs` nav.
 4. Treat the inert nav controls (dark mode, language) as a should-fix before
    any visible launch — they're small, but a fake-functional control is
    worse for trust than no control at all.
+
+---
+
+## Fresher feedback — student module (2026-08-20)
+
+Method: informal usability feedback collected from a group of fresher
+students trying the platform, reconciled against the live source (this is a
+feedback triage, not a fresh code walkthrough — see the Aug 14 audit above
+for that).
+
+### Already built, but not landing as discoverable
+- **"Add a Save/Bookmark option"** — this already exists:
+  `ShareSaveActions.tsx` renders a ★/☆ toggle on every listing (via
+  `useSavedInternships`), and there's a dedicated `/internships/bookmarked`
+  page. Freshers asking for it anyway is a discoverability problem, not a
+  missing feature — the icon-only star sitting in a corner of the card
+  isn't reading as "save this." Consider a text label (at least on the
+  detail page's action row) or a first-run tooltip, rather than building a
+  duplicate feature.
+- **"Application status tracker"** — status is already tracked and shown
+  (`/applications`, `student/dashboard`) via the `STATUS_TONE`/label badges
+  the Aug 14 audit already flagged as copy-pasted across files. What's
+  missing isn't the data, it's a clearer visual (e.g. a stepper: Applied →
+  Shortlisted → Interviewing → Offered) instead of a single badge — a
+  design task, not a new backend capability.
+- **"Better filtering/sorting"** — `FilterBar` already has 9 controls
+  including sort; this duplicates the Aug 14 audit's #103 finding
+  ("FilterBar has grown to 9 controls... consider a 'More filters'
+  disclosure"). No new action beyond what's already queued.
+
+### Confirmed genuine gap
+- **No start/end date on an internship** — confirmed in the data model
+  (`durationWeeks` and `applicationDeadline` exist; there is no `startDate`/
+  `endDate` field anywhere in `lib/types.ts` or the backend modules). The
+  detail page already renders responsibilities (`responsibilities[]`) and
+  working hours (`workingDays` + `scheduleType`), contrary to what some of
+  this feedback implies — but it genuinely cannot show a start/end date
+  because the platform never captures one. If this is worth adding, it's a
+  schema change (new fields on `internships`, exposed on the employer post
+  form and the detail page's "Additional Information" grid), not a
+  frontend-only fix.
+
+### Visual inconsistencies — confirmed and fixed (2026-08-20 follow-up)
+Ran both servers locally and screenshotted the actual rendered pages
+(landing, `/internships`, `/internships/browse`, an internship detail page,
+and — logged in as a seeded demo student — `/student/dashboard` and
+`/applications`) rather than guessing from source alone. All three findings
+below were fixed the same day and re-verified against a fresh screenshot
+after the fix (typecheck clean, no other pages touched).
+
+1. **Three of six sidebar filter groups render as empty, right above the
+   toggle switches — this is almost certainly what read as "spacing/
+   alignment issues with toggle buttons."** `FilterSidebar.tsx`: Category
+   (line 306), Work mode (339), and Type (357) are `<details ... open>` —
+   expanded by default, content visible. Education level (374), Stream
+   (390), and **Minimum stipend (418)** — the section that sits *directly
+   above* the `Paid only` / `Freshers welcome` switches — are plain
+   `<details>` with no `open`, i.e. collapsed by default. Every one of
+   these `<summary>` elements also has `[&::-webkit-details-marker]:hidden`
+   plus `list-none`, which strips the native disclosure triangle in every
+   browser — so a collapsed section gives zero visual cue it's expandable.
+   Screenshotted result: "EDUCATION LEVEL", "STREAM", and "MINIMUM STIPEND"
+   render as bare headings with nothing underneath, immediately followed by
+   the two switches — reads exactly like broken/missing filter content
+   sitting right next to the toggles, not three sections that just need a
+   click. **Fixed:** added a shared `ChevronIcon` (rotates via
+   `group-open:rotate-180`) to all six `<summary>` elements, so every
+   filter group — open or collapsed — now shows an explicit expand/collapse
+   affordance instead of silently hiding the marker.
+
+2. **Skill-tag pills are a hand-rolled span that drifted from the shared
+   `Badge` component sitting one row above them — this is the "bold and
+   clearly visible on one line, lighter/faded on the next" complaint.**
+   On every browse-page row (`InternshipListRow.tsx:68-89`) and on the
+   card's "Matches your skills" line (`InternshipCard.tsx:65-72`), the
+   category/"Actively hiring"/"New" tags use `<Badge>` — `text-xs font-bold`
+   on a colored tone (`text-sp-orange-ink` on `bg-sp-orange-soft`, etc. —
+   `Badge.tsx:5-10`). The skill-tag row directly beneath them
+   (`InternshipListRow.tsx:78-88`) is a raw `<span>`, not `<Badge>`:
+   `text-[11px] font-semibold text-sp-ink-3` on plain `bg-sp-bg-sunken`.
+   Same rounded-pill shape, same row-of-tags affordance, but one step down
+   in size, weight, and a visibly lighter gray ink token — with no label
+   distinguishing "these are categories" from "these are skills." This
+   same `bg-sp-bg-sunken` + `text-sp-ink-3` combination (vs. Badge's
+   `text-sp-ink-2` for its neutral tone) recurs in
+   `CandidateListRow.tsx:67`, `RegistrationProgress.tsx:19`, and
+   `InternshipForm.tsx:339` — it's a systemic drift, not a one-off typo, but
+   those three are outside the student browse/detail surfaces this feedback
+   round covered, so they were left alone for now. **Fixed** (student
+   surfaces only): `InternshipListRow.tsx`'s skill tags now render through
+   `<Badge tone="neutral">` instead of the bespoke span — same size/weight/
+   color as the category pill directly above it. `InternshipCard.tsx`'s
+   "Matches your skills" row already used `<Badge tone="good">` and needed
+   no change.
+
+3. **Application status is shown two different ways on two adjacent
+   pages for the exact same data.** `/student/dashboard`'s "Recent
+   applications" card shows only a single colored text badge (e.g.
+   "shortlisted"). `/applications` (`ApplicationTracker`-style rows) shows
+   a full 4-step dot-and-connector progress tracker (Applied → Shortlisted
+   → Interviewing → Offered) with completed steps in bold navy and
+   remaining steps grayed out. Confirmed live, side by side, for the same
+   two seeded applications. This isn't a bug in either page alone, but the
+   inconsistency between them is likely part of what reads as "some text
+   bold and visible, some faded." **Fixed:** the dashboard's "Recent
+   applications" card now reuses `ApplicationStepper` for any non-terminal
+   application (matching `/applications`'s own `isTerminal` check), falling
+   back to the plain status `Badge` only for `rejected`/`withdrawn`, same as
+   the applications page.
+
+### Net-new, not previously captured
+- Internship descriptions could state day-to-day expectations more
+  plainly — even though `responsibilities[]` renders today, employers may
+  be leaving it thin/generic. This is a content-quality problem on the
+  employer-posting side, not a missing UI element; consider adding
+  guidance/placeholder text on the employer post form's Responsibilities
+  field nudging toward specifics (a "what will they actually do each day"
+  hint), rather than a student-side platform change.

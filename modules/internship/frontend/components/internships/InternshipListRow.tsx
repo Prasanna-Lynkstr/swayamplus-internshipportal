@@ -78,12 +78,9 @@ export function InternshipListRow({ internship }: { internship: Internship }) {
           {internship.skillTags.length > 0 && (
             <div className="flex flex-wrap gap-1.5">
               {internship.skillTags.map((skill) => (
-                <span
-                  key={skill}
-                  className="rounded-full bg-sp-bg-sunken px-2.5 py-1 text-[11px] font-semibold text-sp-ink-3"
-                >
+                <Badge key={skill} tone="neutral">
                   {skill}
-                </span>
+                </Badge>
               ))}
             </div>
           )}

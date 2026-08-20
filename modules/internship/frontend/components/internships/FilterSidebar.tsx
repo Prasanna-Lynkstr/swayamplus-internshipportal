@@ -62,6 +62,26 @@ interface Props {
   currentParams: InternshipFilterParams;
 }
 
+// The disclosure marker every filter-group <summary> hides (see the
+// [&::-webkit-details-marker]:hidden classes below) — without this, a
+// collapsed group (Education level, Stream, Minimum stipend) renders as a
+// bare heading with nothing under it, indistinguishable from broken/empty
+// filter content. Pair with `group` on the parent <details>.
+function ChevronIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 20 20"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      className="h-3.5 w-3.5 shrink-0 text-sp-ink-3 transition-transform group-open:rotate-180"
+    >
+      <path d="M5 7.5l5 5 5-5" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
 // A checkbox-shaped toggle button, not a Link — every control in this
 // sidebar stages its selection locally and only reaches the URL (and thus
 // triggers a refetch) via the "Apply filters" button at the bottom, and
@@ -303,9 +323,10 @@ export function FilterSidebar({ categories, modes, employmentTypes, currentParam
       </div>
 
       <div className="flex max-h-[calc(100vh-160px)] flex-col gap-1 overflow-y-auto px-2 py-2 lg:max-h-[calc(100vh-220px)]">
-        <details className="border-b border-black/5 px-2 py-3" open>
+        <details className="group border-b border-black/5 px-2 py-3" open>
           <summary className="flex cursor-pointer list-none items-center justify-between text-xs font-extrabold uppercase tracking-wide text-sp-ink-2 [&::-webkit-details-marker]:hidden">
             Category
+            <ChevronIcon />
           </summary>
           <div className="mt-2 flex flex-col gap-0.5">
             {categorySplit.visible.map((c) => (
@@ -336,9 +357,10 @@ export function FilterSidebar({ categories, modes, employmentTypes, currentParam
         </details>
 
         {modes.length > 0 && (
-          <details className="border-b border-black/5 px-2 py-3" open>
+          <details className="group border-b border-black/5 px-2 py-3" open>
             <summary className="flex cursor-pointer list-none items-center justify-between text-xs font-extrabold uppercase tracking-wide text-sp-ink-2 [&::-webkit-details-marker]:hidden">
               Work mode
+              <ChevronIcon />
             </summary>
             <div className="mt-2.5 flex flex-wrap gap-1.5">
               {modes.map((m) => (
@@ -354,9 +376,10 @@ export function FilterSidebar({ categories, modes, employmentTypes, currentParam
         )}
 
         {employmentTypes.length > 0 && (
-          <details className="border-b border-black/5 px-2 py-3" open>
+          <details className="group border-b border-black/5 px-2 py-3" open>
             <summary className="flex cursor-pointer list-none items-center justify-between text-xs font-extrabold uppercase tracking-wide text-sp-ink-2 [&::-webkit-details-marker]:hidden">
               Type
+              <ChevronIcon />
             </summary>
             <div className="mt-2.5 flex flex-wrap gap-1.5">
               {employmentTypes.map((t) => (
@@ -371,9 +394,10 @@ export function FilterSidebar({ categories, modes, employmentTypes, currentParam
           </details>
         )}
 
-        <details className="border-b border-black/5 px-2 py-3">
+        <details className="group border-b border-black/5 px-2 py-3">
           <summary className="flex cursor-pointer list-none items-center justify-between text-xs font-extrabold uppercase tracking-wide text-sp-ink-2 [&::-webkit-details-marker]:hidden">
             Education level
+            <ChevronIcon />
           </summary>
           <div className="mt-2.5 flex flex-wrap gap-1.5">
             {EDUCATION_LEVELS.map((level) => (
@@ -387,9 +411,10 @@ export function FilterSidebar({ categories, modes, employmentTypes, currentParam
           </div>
         </details>
 
-        <details className="border-b border-black/5 px-2 py-3">
+        <details className="group border-b border-black/5 px-2 py-3">
           <summary className="flex cursor-pointer list-none items-center justify-between text-xs font-extrabold uppercase tracking-wide text-sp-ink-2 [&::-webkit-details-marker]:hidden">
             Stream
+            <ChevronIcon />
           </summary>
           <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
             {streamSplit.visible.map((s) => (
@@ -415,9 +440,10 @@ export function FilterSidebar({ categories, modes, employmentTypes, currentParam
           </div>
         </details>
 
-        <details className="border-b border-black/5 px-2 py-3">
+        <details className="group border-b border-black/5 px-2 py-3">
           <summary className="flex cursor-pointer list-none items-center justify-between text-xs font-extrabold uppercase tracking-wide text-sp-ink-2 [&::-webkit-details-marker]:hidden">
             Minimum stipend
+            <ChevronIcon />
           </summary>
           <div className="mt-2.5 flex flex-wrap gap-1.5">
             <CheckboxChip label="Any" checked={stipendMin === ''} onClick={() => setStipendMin('')} />
