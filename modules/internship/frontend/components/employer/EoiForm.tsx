@@ -214,7 +214,7 @@ export function EoiForm() {
               id="contactPersonPhone"
               type="tel"
               required
-              pattern="(\+?91[\s-]?)?[6-9]\d{9}"
+              pattern="(\+?91[\s\-]?)?[6-9]\d{9}"
               title="A 10-digit Indian mobile number, optionally with a +91 country code"
               value={fields.contactPersonPhone}
               onChange={(e) => set('contactPersonPhone', e.target.value)}

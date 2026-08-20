@@ -148,7 +148,7 @@ export function ProfileFieldsCard({
           id="phone"
           type="tel"
           required
-          pattern="(\+?91[\s-]?)?[6-9]\d{9}"
+          pattern="(\+?91[\s\-]?)?[6-9]\d{9}"
           title="A 10-digit Indian mobile number, optionally with a +91 country code"
           value={profile.phone ?? ''}
           onChange={(e) => setProfile((p) => ({ ...p, phone: e.target.value }))}

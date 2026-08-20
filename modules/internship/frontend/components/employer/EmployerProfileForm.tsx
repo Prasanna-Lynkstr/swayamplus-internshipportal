@@ -125,7 +125,7 @@ export function EmployerProfileForm({ token }: { token: string | null }) {
             id="contactPersonPhone"
             type="tel"
             required
-            pattern="(\+?91[\s-]?)?[6-9]\d{9}"
+            pattern="(\+?91[\s\-]?)?[6-9]\d{9}"
             title="A 10-digit Indian mobile number, optionally with a +91 country code"
             value={profile.contactPersonPhone ?? ''}
             onChange={(e) => setProfile((p) => ({ ...p, contactPersonPhone: e.target.value }))}
