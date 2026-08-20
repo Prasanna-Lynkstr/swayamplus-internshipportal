@@ -5,6 +5,7 @@ import { apiFetch } from '@/lib/api';
 import { Button } from '@/components/ui/Button';
 import { Input, Label } from '@/components/ui/Input';
 import { useTaxonomy } from '@/lib/useTaxonomy';
+import { STIPEND_PRESETS } from '@/lib/internshipFilters';
 import type { StudentPreferences } from '@/lib/types';
 
 function toggleInArray<T>(arr: T[], value: T): T[] {
@@ -61,6 +62,7 @@ export function PreferencesCard({
           preferredModes: prefs.preferredModes,
           preferredEmploymentTypes: prefs.preferredEmploymentTypes,
           paidPreference: prefs.paidPreference,
+          minExpectedStipend: prefs.minExpectedStipend,
           availabilityStatus: prefs.availabilityStatus || undefined,
           availableFrom:
             prefs.availabilityStatus === 'available_from'
@@ -169,6 +171,26 @@ export function PreferencesCard({
           {paidPreferences.map((option) => (
             <option key={option.value} value={option.value}>
               {option.label}
+            </option>
+          ))}
+        </select>
+      </div>
+      <div>
+        <Label htmlFor="minExpectedStipend">Minimum expected stipend</Label>
+        <select
+          id="minExpectedStipend"
+          value={prefs.minExpectedStipend?.toString() ?? ''}
+          onChange={(e) =>
+            setPrefs(
+              (p) => p && { ...p, minExpectedStipend: e.target.value ? Number(e.target.value) : null },
+            )
+          }
+          className="w-full rounded-sp-lg border border-black/10 px-3 py-2 text-sm text-sp-navy outline-none focus:border-sp-blue"
+        >
+          <option value="">No preference</option>
+          {STIPEND_PRESETS.map((preset) => (
+            <option key={preset.value} value={preset.value}>
+              {preset.label}
             </option>
           ))}
         </select>

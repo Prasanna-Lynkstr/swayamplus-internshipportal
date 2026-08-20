@@ -13,6 +13,7 @@
     "migrate:remove-employer-legacy-approval": "bun scripts/migrate-remove-employer-legacy-approval.ts",
     "migrate:add-saved-searches": "bun scripts/migrate-add-saved-searches.ts",
     "migrate:add-student-discoverable": "bun scripts/migrate-add-student-discoverable.ts",
+    "migrate:add-min-expected-stipend": "bun scripts/migrate-add-min-expected-stipend.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

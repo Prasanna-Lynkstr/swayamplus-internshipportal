@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { ShareSaveActions } from './ShareSaveActions';
+import { MatchScoreBadge } from './MatchScoreBadge';
 import { EmployerNameTrigger } from '@/components/employers/EmployerNameTrigger';
 import { modeLabel } from '@/lib/mode';
 import { categoryIcon } from '@/lib/categories';
@@ -61,6 +62,7 @@ export function InternshipCard({ internship }: { internship: Internship }) {
             {internship.category}
           </Badge>
           {eligibilityTag && <Badge tone="neutral">{eligibilityTag}</Badge>}
+          <MatchScoreBadge percent={internship.matchPercent} />
         </div>
 
         {internship.matchedSkills && internship.matchedSkills.length > 0 && (

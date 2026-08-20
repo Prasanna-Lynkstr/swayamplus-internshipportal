@@ -61,6 +61,13 @@ export class StudentPreference extends Model<
   @Default('either')
   declare paidPreference: CreationOptional<string>;
 
+  // Rupees/month, or null for "no preference" — distinct from paidPreference
+  // (paid vs. unpaid) in that this is the floor a listing's stipend needs to
+  // clear, same semantics as the browse page's own stipend-floor filter
+  // (see FilterSidebar.tsx's STIPEND_PRESETS). Feeds match-score.util.ts.
+  @Attribute(DataTypes.INTEGER)
+  declare minExpectedStipend: number | null;
+
   // Free-text job roles/titles of interest (e.g. "Backend Developer") —
   // distinct from preferredCategories, which is the closed taxonomy.
   @Attribute(DataTypes.JSONB)

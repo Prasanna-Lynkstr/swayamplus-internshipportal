@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { ShareSaveActions } from './ShareSaveActions';
+import { MatchScoreBadge } from './MatchScoreBadge';
 import { EmployerNameTrigger } from '@/components/employers/EmployerNameTrigger';
 import { modeLabel } from '@/lib/mode';
 import { categoryIcon } from '@/lib/categories';
@@ -87,7 +88,8 @@ export function InternshipListRow({ internship }: { internship: Internship }) {
         </div>
 
         <div className="flex shrink-0 flex-row items-center justify-between gap-3 border-t border-black/5 pt-3 sm:min-w-[150px] sm:flex-col sm:items-end sm:border-l sm:border-t-0 sm:pl-6 sm:pt-0">
-          <div className="flex items-center gap-1.5">
+          <div className="flex flex-wrap items-center justify-end gap-1.5">
+            <MatchScoreBadge percent={internship.matchPercent} />
             {internship.appliedByCurrentUser && <Badge tone="good">Applied</Badge>}
             <Badge tone={isPaid ? 'good' : 'neutral'}>
               {stipendLabel(internship.stipendMin, internship.stipendMax)}

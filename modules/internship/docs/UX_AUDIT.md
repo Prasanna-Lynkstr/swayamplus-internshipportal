@@ -401,3 +401,93 @@ after the fix (typecheck clean, no other pages touched).
   guidance/placeholder text on the employer post form's Responsibilities
   field nudging toward specifics (a "what will they actually do each day"
   hint), rather than a student-side platform change.
+
+---
+
+## Fresher/tester feedback round 2 (2026-08-20)
+
+### "Smart Internship Match Score" suggestion — built (2026-08-20)
+A fresher suggested ranking internships by how well they match a student's
+skills, education, location, work mode, and stipend expectations. Checked
+against the backend rather than treating this as net-new:
+`match-score.util.ts`'s `scoreStudentMatch()` already does exactly this —
+it scores skill overlap plus `StudentPreference` fields (category, mode,
+employment type, paid/unpaid, location substring match), and
+`InternshipsService.findPublished` already defaults sort to `'relevance'`
+using that score whenever a student has skills or any preference set
+(`internships.service.ts:237-240`), which is what powers both the
+`/internships/browse` default ordering and the dashboard's "Recommended for
+you" rail. `matchedSkillTags()` also already surfaces *why* a listing
+matched, as the "Matches your skills: …" chip row on `InternshipCard`.
+Two real gaps were identified against what was asked for, and both are now
+closed:
+
+1. **No numeric stipend-expectation field — fixed.** Added
+   `StudentPreference.minExpectedStipend` (nullable integer, rupees/month;
+   migration: `migrate-add-min-expected-stipend.ts`), validated in
+   `UpdateStudentPreferencesDto` (`@IsInt() @Min(0)`, with `@IsOptional()`
+   also accepting an explicit `null` to clear it). It uses the same
+   "at least ₹X" floor semantics as the browse page's own stipend filter
+   (`meetsStipendFloor()` in `match-score.util.ts`, shared by both
+   `scoreStudentMatch` — so it now affects sort order too — and the new
+   `computeMatchPercent`). The `STIPEND_PRESETS` list was moved from
+   `FilterSidebar.tsx` into `lib/internshipFilters.ts` so the filter and the
+   preferences form share the exact same ₹2,000+/5,000+/10,000+/15,000+
+   vocabulary instead of drifting. UI: a new "Minimum expected stipend"
+   select on `PreferencesCard`, next to Paid/unpaid.
+2. **The score itself was invisible — fixed.** Added `computeMatchPercent()`
+   — same weighted dimensions as `scoreStudentMatch`, but normalized 0-100
+   against only the dimensions a student has actually set (an unset
+   preference, or a listing with zero skill tags, is excluded from the
+   denominator rather than counted as a miss — a student who's only filled
+   in skills isn't punished down to a low score for never touching
+   location/mode prefs). Returns `null` — not 0 — when there's no basis to
+   score at all, mirroring the existing 0-100-or-null convention already
+   used by the employer-side checklist match score
+   (`checklist-match.util.ts`). Exposed as `matchPercent` on every
+   `/internships` list item. UI: a new `MatchScoreBadge` (tiered — green
+   ≥70%, orange ≥40%, gray below, nothing when `null`) on both
+   `InternshipCard` and the browse page's `InternshipListRow`, next to the
+   category/eligibility badges.
+
+Verified end-to-end against the running app, not just typechecked: set
+`minExpectedStipend` via `PATCH /students/me/preferences` for a seeded
+demo student, confirmed it persisted and round-tripped through the
+preferences form UI, and confirmed `/internships` returned varying
+`matchPercent` values (correctly `null`-free once skills/preferences were
+set) with the badge rendering at the expected tier on the live browse page.
+
+### Scope note on the accompanying 26-section QA report
+A much larger generic QA report was also submitted, written against a full
+multi-course "SWAYAM Plus" learning portal (course catalogue, UGC credit
+validation, partner-hosted courses and redirects, payments/enrollment,
+events, multilingual course content, certificates-on-completion). **That
+product doesn't exist in this repo.** Per `frontend/CLAUDE.md`'s scope,
+this build is internship-only — three roles (student/employer/admin), no
+course catalogue, no payments, no external partner redirects, no events
+section, and the "EN" language toggle is already flagged elsewhere in this
+doc as decoratively inert. Sections 3, 5, 6, 12, 13, 14, and most of 15 in
+that report describe surfaces that would need to be built from scratch as
+a different, much larger product, not bugs in what's shipped today.
+
+The parts of that report that *do* map onto this codebase were spot-checked
+rather than assumed:
+- **Deadline enforcement and duplicate-application blocking are already
+  server-side, not just client-side UX** — `applications.service.ts:97`
+  (`ForbiddenException` past the deadline) and `:104` (`ConflictException`
+  on a repeat apply), both with specific, non-generic messages.
+- **Resume/verification-document uploads already enforce a server-side MIME
+  allowlist** (`file-filter.util.ts`), not an extension check — covers the
+  report's "invalid document upload" scenario.
+- **Empty search/filter results already exceed the report's own suggested
+  bar.** `/internships/browse` doesn't show a bare "no results" — it falls
+  back to a broader same-category (or newest) result set plus a "request an
+  internship we don't have" form (`app/internships/browse/page.tsx:62-69`).
+- Items from the report that genuinely apply here and are already tracked
+  elsewhere in this doc, not re-litigated: no real OTP resend (Cross-cutting
+  section), employer-name keyboard-accessibility gap (priority list #10),
+  no pagination on `/applications` (Student journey, Medium).
+- Not independently verified this round (would need dedicated passes, not
+  assumed from a code read): multi-network/load performance, screen-reader
+  behavior beyond the one keyboard-focus gap already found, and session-
+  expiry/concurrent-session behavior.

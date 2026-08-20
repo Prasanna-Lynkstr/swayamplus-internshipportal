@@ -4,6 +4,21 @@
 // exist and in what order, instead of each re-implementing this.
 export type InternshipFilterParams = Record<string, string | undefined>;
 
+// A single "at least ₹X/month" floor, not a two-handle range — nobody
+// filters out a *higher*-paying internship. Presets over a slider since
+// there's no slider primitive anywhere in this codebase, and these four
+// values cover the real decision a student is making well enough. Shared
+// between the browse page's stipend filter (FilterSidebar) and the
+// preferences form's "minimum expected stipend" (PreferencesCard) so the
+// two stay in the same vocabulary — a preference and a filter mean the same
+// thing here (see StudentPreference.minExpectedStipend).
+export const STIPEND_PRESETS = [
+  { label: '₹2,000+', value: '2000' },
+  { label: '₹5,000+', value: '5000' },
+  { label: '₹10,000+', value: '10000' },
+  { label: '₹15,000+', value: '15000' },
+] as const;
+
 export const FILTER_KEYS = [
   'q',
   'location',

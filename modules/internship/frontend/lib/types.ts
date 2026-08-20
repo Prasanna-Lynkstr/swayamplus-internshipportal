@@ -121,6 +121,8 @@ export interface StudentPreferences {
   preferredModes: string[];
   preferredEmploymentTypes: string[];
   paidPreference: string;
+  /** Rupees/month floor, or null for "no preference" — same semantics as the browse page's stipend filter. */
+  minExpectedStipend: number | null;
   rolesOfInterest: string[];
   availabilityStatus: AvailabilityStatus | null;
   // Only meaningful when availabilityStatus === 'available_from'.
@@ -185,6 +187,8 @@ export interface Internship {
   activelyHiring?: boolean;
   /** Present on GET /internships when the requester is an authenticated student — this listing's skillTags that overlap the student's own skills. */
   matchedSkills?: string[];
+  /** Present on GET /internships when the requester is an authenticated student — 0-100, or null when there's no skill/preference basis to score against (see computeMatchPercent). */
+  matchPercent?: number | null;
 }
 
 export type ApplicationStatus =

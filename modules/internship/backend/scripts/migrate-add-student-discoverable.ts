@@ -2,10 +2,14 @@ import 'reflect-metadata';
 import { Sequelize } from '@sequelize/core';
 import { PostgresDialect } from '@sequelize/postgres';
 
-// Adds students.discoverable_to_employers for prod deployments — sequelize.
+// Adds students."discoverableToEmployers" for prod deployments — sequelize.
 // sync({ alter }) only runs outside production (see sequelize.provider.ts),
 // so this is the only path that lands the new column in a real deployment.
-// Safely re-runnable.
+// Safely re-runnable. Column name must be the quoted camelCase Sequelize
+// actually uses (confirmed against a sync({ alter })'d dev DB) — an
+// unquoted/snake_case ADD COLUMN here would create a second, wrong column
+// that the model never reads or writes, same convention already followed
+// by migrate-add-saved-searches.ts and migrate-add-indexes.ts.
 async function main() {
   const sequelize = new Sequelize({
     dialect: PostgresDialect,
@@ -18,10 +22,10 @@ async function main() {
 
   await sequelize.authenticate();
 
-  console.log('Adding students.discoverable_to_employers...');
+  console.log('Adding students."discoverableToEmployers"...');
   await sequelize.query(`
     ALTER TABLE students
-    ADD COLUMN IF NOT EXISTS discoverable_to_employers boolean NOT NULL DEFAULT true;
+    ADD COLUMN IF NOT EXISTS "discoverableToEmployers" boolean NOT NULL DEFAULT true;
   `);
 
   console.log('Done.');

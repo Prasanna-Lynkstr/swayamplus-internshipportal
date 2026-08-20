@@ -47,7 +47,90 @@ export function scoreStudentMatch(
     score += 2;
   }
 
+  if (preferences.minExpectedStipend != null && meetsStipendFloor(internship, preferences.minExpectedStipend)) {
+    score += 2;
+  }
+
   return score;
+}
+
+// Same "at least X" semantics as the browse page's own stipend-floor filter
+// (InternshipsService.findPublished's stipendMin query condition) — a
+// listing clears the floor if either end of its range does, so a listing
+// paying "up to ₹15,000" still counts against a ₹10,000 expectation.
+function meetsStipendFloor(
+  internship: Pick<Internship, 'stipendMin' | 'stipendMax'>,
+  floor: number,
+): boolean {
+  return (internship.stipendMax ?? 0) >= floor || (internship.stipendMin ?? 0) >= floor;
+}
+
+// Same inputs and weights as scoreStudentMatch, but normalized to 0-100
+// against only the dimensions that are actually set — an unset preference
+// (or a listing with no skill tags at all) is excluded from the denominator
+// rather than counted as a miss, so a student who's only set skills isn't
+// penalized down to a low percentage just for never having filled in
+// location/mode preferences. Mirrors the 0-100-or-null convention already
+// used for the employer-side checklist match score (checklist-match.util.ts).
+export function computeMatchPercent(
+  studentSkills: string[],
+  preferences: StudentPreference | null,
+  internship: Pick<
+    Internship,
+    'skillTags' | 'category' | 'mode' | 'employmentType' | 'stipendMin' | 'stipendMax' | 'location'
+  >,
+): number | null {
+  let earned = matchedSkillTags(studentSkills, internship.skillTags).length;
+  let possible = internship.skillTags.length;
+
+  const addDimension = (isPreferenceSet: boolean, weight: number, isMatch: boolean) => {
+    if (!isPreferenceSet) return;
+    possible += weight;
+    if (isMatch) earned += weight;
+  };
+
+  if (preferences) {
+    addDimension(
+      preferences.preferredCategories.length > 0,
+      3,
+      preferences.preferredCategories.includes(internship.category),
+    );
+    addDimension(
+      preferences.preferredModes.length > 0,
+      2,
+      preferences.preferredModes.includes(internship.mode),
+    );
+    addDimension(
+      preferences.preferredEmploymentTypes.length > 0,
+      2,
+      preferences.preferredEmploymentTypes.includes(internship.employmentType),
+    );
+    const isPaid = Boolean(internship.stipendMin || internship.stipendMax);
+    addDimension(
+      preferences.paidPreference !== 'either',
+      2,
+      (preferences.paidPreference === 'paid' && isPaid) ||
+        (preferences.paidPreference === 'unpaid' && !isPaid),
+    );
+    addDimension(
+      preferences.preferredLocations.length > 0,
+      2,
+      Boolean(
+        internship.location &&
+          preferences.preferredLocations.some((loc) =>
+            internship.location!.toLowerCase().includes(loc.toLowerCase()),
+          ),
+      ),
+    );
+    addDimension(
+      preferences.minExpectedStipend != null,
+      2,
+      preferences.minExpectedStipend != null && meetsStipendFloor(internship, preferences.minExpectedStipend),
+    );
+  }
+
+  if (possible === 0) return null;
+  return Math.round((earned / possible) * 100);
 }
 
 // Same case-insensitive comparison as the score above, but returns the

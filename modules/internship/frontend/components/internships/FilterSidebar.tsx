@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { categoryIcon } from '@/lib/categories';
-import { buildInternshipsHref, parseMultiValue, serializeMultiValue } from '@/lib/internshipFilters';
+import { buildInternshipsHref, parseMultiValue, serializeMultiValue, STIPEND_PRESETS } from '@/lib/internshipFilters';
 import type { InternshipFilterParams } from '@/lib/internshipFilters';
 import type { TaxonomyOption } from '@/lib/useTaxonomy';
 import type { CategoryCount } from '@/lib/types';
@@ -15,17 +15,6 @@ import { Button } from '@/components/ui/Button';
 // student ever explicitly filters *by* (see query-internships.dto.ts).
 const EDUCATION_LEVELS = ['UG', 'PG', 'Other'] as const;
 const STREAMS = ['Engineering', 'Management', 'Arts', 'Commerce', 'Science', 'Law', 'Medical', 'Other'] as const;
-
-// A single "at least ₹X/month" floor, not a two-handle range — nobody
-// filters out a *higher*-paying internship. Presets over a slider since
-// there's no slider primitive anywhere in this codebase, and these five
-// values cover the real decision a student is making well enough.
-const STIPEND_PRESETS = [
-  { label: '₹2,000+', value: '2000' },
-  { label: '₹5,000+', value: '5000' },
-  { label: '₹10,000+', value: '10000' },
-  { label: '₹15,000+', value: '15000' },
-] as const;
 
 // Past this many items, a filter group's own list starts pushing every
 // *other* filter group below the fold — the actual bug this caps. Splitting

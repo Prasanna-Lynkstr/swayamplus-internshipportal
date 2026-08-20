@@ -1,4 +1,4 @@
-import { IsArray, IsIn, IsISO8601, IsOptional, IsString, ValidateIf } from 'class-validator';
+import { IsArray, IsIn, IsISO8601, IsInt, IsOptional, IsString, Min, ValidateIf } from 'class-validator';
 import { IsDateWithinDays } from '../../../common/decorators/is-date-within-days.decorator.js';
 import type { AvailabilityStatus } from '../../../database/models/index.js';
 
@@ -39,6 +39,14 @@ export class UpdateStudentPreferencesDto {
   @IsOptional()
   @IsString()
   paidPreference?: string;
+
+  // Rupees/month floor. @IsOptional() treats both `undefined` (field
+  // omitted — leave unchanged) and `null` (explicitly clear it back to "no
+  // preference") as valid without running IsInt/Min against either.
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  minExpectedStipend?: number | null;
 
   @IsOptional()
   @IsArray()
