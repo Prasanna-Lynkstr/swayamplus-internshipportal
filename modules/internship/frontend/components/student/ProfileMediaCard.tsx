@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import Image from 'next/image';
 import { apiFetch } from '@/lib/api';
 import { resolveFileUrl } from '@/lib/files';
 import { Card } from '@/components/ui/Card';
@@ -129,10 +130,12 @@ export function ProfileMediaCard({
         <p className="mb-4 text-sm text-sp-ink-2">Shown on your dashboard and to employers reviewing applicants.</p>
         <div className="flex items-center gap-4">
           {avatarSrc ? (
-            // eslint-disable-next-line @next/next/no-img-element -- user-uploaded, not a build-time asset
-            <img
+            <Image
               src={avatarSrc}
               alt="Profile"
+              width={64}
+              height={64}
+              unoptimized={avatarSrc.startsWith('blob:')}
               className="h-16 w-16 rounded-full object-cover"
             />
           ) : (

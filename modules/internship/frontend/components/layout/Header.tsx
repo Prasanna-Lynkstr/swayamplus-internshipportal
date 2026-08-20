@@ -5,7 +5,7 @@ export function Header() {
   return (
     <header>
       <div className="border-b border-black/5 bg-white">
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
+        <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3 sm:px-6 lg:px-8">
           <div className="flex items-center gap-2">
             <span className="placeholder-logo h-9 w-9 rounded-full text-[10px]">MoE</span>
             <span className="hidden text-xs font-bold tracking-wide text-sp-ink-2 sm:inline">
@@ -22,7 +22,7 @@ export function Header() {
         </div>
       </div>
 
-      <div className="mx-auto max-w-6xl px-4 py-3">
+      <div className="mx-auto max-w-6xl px-4 py-3 sm:px-6 lg:px-8">
         <NavPill />
       </div>
     </header>

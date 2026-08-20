@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import Image from 'next/image';
 import { apiFetch } from '@/lib/api';
 import { resolveFileUrl } from '@/lib/files';
 import { Card } from '@/components/ui/Card';
@@ -69,8 +70,14 @@ export function EmployerLogoCard({ token }: { token: string | null }) {
       </p>
       <div className="flex items-center gap-4">
         {logoSrc ? (
-          // eslint-disable-next-line @next/next/no-img-element -- user-uploaded, not a build-time asset
-          <img src={logoSrc} alt="Company logo" className="h-16 w-16 rounded-sp-md object-cover" />
+          <Image
+            src={logoSrc}
+            alt="Company logo"
+            width={64}
+            height={64}
+            unoptimized={logoSrc.startsWith('blob:')}
+            className="h-16 w-16 rounded-sp-md object-cover"
+          />
         ) : (
           <div className="flex h-16 w-16 items-center justify-center rounded-sp-md bg-sp-bg-sunken text-xl font-black text-sp-ink-2">
             {initial}

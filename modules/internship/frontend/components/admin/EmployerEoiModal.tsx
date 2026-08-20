@@ -2,6 +2,7 @@
 
 import { useEffect } from 'react';
 import { createPortal } from 'react-dom';
+import Image from 'next/image';
 import { Badge } from '@/components/ui/Badge';
 import { ContactRow, IconMail, IconPhone, LinkChip } from '@/components/ui/ContactLinks';
 import { resolveFileUrl } from '@/lib/files';
@@ -88,10 +89,11 @@ export function EmployerEoiModal({ employer, onClose }: Props) {
           <div className="flex flex-col gap-5 border-b border-black/5 bg-sp-bg-sunken/60 p-5 lg:border-b-0">
             <div className="flex flex-col items-center gap-2 rounded-sp-lg bg-sp-pastel-peach/60 p-5 text-center">
               {employer.logoUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element -- user-uploaded, not a build-time asset
-                <img
+                <Image
                   src={resolveFileUrl(employer.logoUrl)}
                   alt={`${employer.organizationName ?? 'Employer'} logo`}
+                  width={64}
+                  height={64}
                   className="h-16 w-16 rounded-full bg-white object-contain"
                 />
               ) : (

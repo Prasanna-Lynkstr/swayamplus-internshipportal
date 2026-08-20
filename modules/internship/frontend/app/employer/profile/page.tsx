@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Image from 'next/image';
 import { useAuth } from '@/lib/auth';
 import { apiFetch } from '@/lib/api';
 import { resolveFileUrl } from '@/lib/files';
@@ -38,9 +39,11 @@ export default function EmployerProfilePage() {
         <div className="flex flex-wrap items-center gap-5 p-6 sm:p-8">
           {employer?.logoUrl ? (
             // eslint-disable-next-line @next/next/no-img-element -- user-uploaded, not a build-time asset
-            <img
+            <Image
               src={resolveFileUrl(employer.logoUrl)}
               alt={orgName}
+              width={80}
+              height={80}
               className="h-20 w-20 shrink-0 rounded-sp-lg border-2 border-white object-cover shadow-sm"
             />
           ) : (

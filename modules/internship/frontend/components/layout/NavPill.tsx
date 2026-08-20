@@ -36,8 +36,11 @@ export function NavPill() {
             <Link
               key={link.href}
               href={href}
-              className={`rounded-full px-4 py-2 text-sm font-semibold transition-colors hover:bg-white/15 ${
-                isActive ? 'bg-white/20' : ''
+              aria-current={isActive ? 'page' : undefined}
+              className={`rounded-full px-4 py-2 text-sm font-semibold transition-colors ${
+                isActive
+                  ? 'bg-white text-sp-green-from shadow-sm shadow-black/10'
+                  : 'hover:bg-white/15'
               }`}
             >
               {link.label}

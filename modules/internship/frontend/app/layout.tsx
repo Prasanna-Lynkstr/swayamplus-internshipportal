@@ -28,7 +28,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className={`${dmSans.variable} ${jetbrainsMono.variable} antialiased`}>
         <AuthProvider>
           <Header />
-          <main className="mx-auto min-h-[60vh] max-w-6xl px-4 py-10">{children}</main>
+          <main className="mx-auto min-h-[60vh] max-w-6xl px-4 py-10 sm:px-6 lg:px-8">{children}</main>
           <Footer />
         </AuthProvider>
       </body>

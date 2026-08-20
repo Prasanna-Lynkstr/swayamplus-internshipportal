@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
+import Image from 'next/image';
 import { apiFetch } from '@/lib/api';
 import { resolveFileUrl } from '@/lib/files';
 import { Badge } from '@/components/ui/Badge';
@@ -186,10 +187,11 @@ export function ApplicantProfileModal({ applicationId, token, onClose, onRequest
             <div className="flex flex-col gap-5 border-b border-black/5 bg-sp-bg-sunken/60 p-5 lg:border-b-0">
               <div className="flex flex-col items-center gap-2 rounded-sp-lg bg-sp-pastel-mint/60 p-5 text-center">
                 {student.photoUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element -- user-uploaded, not a build-time asset
-                  <img
+                  <Image
                     src={resolveFileUrl(student.photoUrl)}
                     alt={student.fullName ?? 'Applicant'}
+                    width={64}
+                    height={64}
                     className="h-16 w-16 rounded-full object-cover"
                   />
                 ) : (

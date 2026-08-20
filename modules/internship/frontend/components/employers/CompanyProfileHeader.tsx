@@ -1,5 +1,6 @@
 'use client';
 
+import Image from 'next/image';
 import { useTaxonomy } from '@/lib/useTaxonomy';
 import { Badge } from '@/components/ui/Badge';
 import { resolveFileUrl } from '@/lib/files';
@@ -38,10 +39,11 @@ export function CompanyProfileHeader({ employer }: { employer: PublicEmployerPro
       <div className="px-6 pb-6">
         <div className="-mt-12 flex flex-wrap items-end gap-4 sm:-mt-14">
           {employer.logoUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element -- user-uploaded, not a build-time asset
-            <img
+            <Image
               src={resolveFileUrl(employer.logoUrl)}
               alt={employer.organizationName ?? 'Company logo'}
+              width={112}
+              height={112}
               className="h-24 w-24 shrink-0 rounded-sp-lg border-4 border-sp-bg-elev bg-white object-cover shadow-md sm:h-28 sm:w-28"
             />
           ) : (

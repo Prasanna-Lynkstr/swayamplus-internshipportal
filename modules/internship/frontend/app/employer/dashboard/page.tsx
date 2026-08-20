@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { useAuth } from '@/lib/auth';
 import { apiFetch } from '@/lib/api';
 import { resolveFileUrl } from '@/lib/files';
@@ -264,9 +265,11 @@ function ApplicantsPanel({
           <div className="flex min-w-0 gap-3">
             {app.student?.photoUrl ? (
               // eslint-disable-next-line @next/next/no-img-element -- user-uploaded, not a build-time asset
-              <img
+              <Image
                 src={resolveFileUrl(app.student.photoUrl)}
                 alt={app.student.fullName ?? 'Applicant'}
+                width={44}
+                height={44}
                 className="h-11 w-11 shrink-0 rounded-full object-cover"
               />
             ) : (
@@ -602,9 +605,11 @@ export default function EmployerDashboardPage() {
         <div className="flex items-center gap-3">
           {logoUrl ? (
             // eslint-disable-next-line @next/next/no-img-element -- user-uploaded, not a build-time asset
-            <img
+            <Image
               src={resolveFileUrl(logoUrl)}
               alt={orgName || 'Company logo'}
+              width={40}
+              height={40}
               className="h-10 w-10 rounded-sp-md object-cover"
             />
           ) : (

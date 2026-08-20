@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Image from 'next/image';
 import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
@@ -33,10 +34,11 @@ export function CandidateListRow({ candidate, token }: { candidate: Candidate; t
       <Card className="flex flex-col gap-3 p-5 sm:flex-row sm:items-start sm:justify-between sm:gap-6">
         <div className="flex min-w-0 flex-1 gap-3">
           {candidate.photoUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element -- user-uploaded, not a build-time asset
-            <img
+            <Image
               src={resolveFileUrl(candidate.photoUrl)}
               alt={candidate.fullName ?? 'Candidate'}
+              width={44}
+              height={44}
               className="h-11 w-11 shrink-0 rounded-full object-cover"
             />
           ) : (
