@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { apiFetch, ApiError } from '@/lib/api';
+import { normalizeExternalUrl } from '@/lib/externalUrl';
 import { Button } from '@/components/ui/Button';
 import { Input, Label, Select, Textarea } from '@/components/ui/Input';
 import { StudentTermsModal } from './StudentTermsModal';
@@ -214,7 +215,7 @@ export function ProfileFieldsCard({
         <div className="flex items-center justify-between">
           <Label htmlFor="linkedinUrl">LinkedIn URL</Label>
           <a
-            href={profile.linkedinUrl || 'https://www.linkedin.com/'}
+            href={profile.linkedinUrl ? normalizeExternalUrl(profile.linkedinUrl) : 'https://www.linkedin.com/'}
             target="_blank"
             rel="noreferrer"
             className="text-xs font-semibold text-sp-blue hover:underline"
@@ -234,7 +235,7 @@ export function ProfileFieldsCard({
         <div className="flex items-center justify-between">
           <Label htmlFor="githubUrl">GitHub URL</Label>
           <a
-            href={profile.githubUrl || 'https://github.com/'}
+            href={profile.githubUrl ? normalizeExternalUrl(profile.githubUrl) : 'https://github.com/'}
             target="_blank"
             rel="noreferrer"
             className="text-xs font-semibold text-sp-blue hover:underline"

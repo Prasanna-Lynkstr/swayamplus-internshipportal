@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { normalizeExternalUrl } from '@/lib/externalUrl';
 
 // Shared building blocks for the "review someone's full submitted profile"
 // modals (applicant profile for employers, EOI detail for admins) — both
@@ -94,7 +95,7 @@ export function LinkChip({ label, href, accent }: { label: string; href: string 
   }
   return (
     <a
-      href={href}
+      href={normalizeExternalUrl(href)}
       target="_blank"
       rel="noreferrer"
       className={`rounded-full px-3 py-1.5 text-xs font-bold hover:opacity-80 ${

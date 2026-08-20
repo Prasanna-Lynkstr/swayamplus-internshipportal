@@ -1,4 +1,6 @@
+import { Transform } from 'class-transformer';
 import { IsArray, IsBoolean, IsInt, IsOptional, IsString, IsUrl, Max, Min } from 'class-validator';
+import { normalizeUrl } from '../../../common/utils/normalize-url.util.js';
 
 export class UpdateStudentDto {
   @IsOptional()
@@ -36,14 +38,17 @@ export class UpdateStudentDto {
   // POST /students/me/resume, which uploads the file via StorageService.
 
   @IsOptional()
+  @Transform(({ value }) => normalizeUrl(value))
   @IsUrl()
   linkedinUrl?: string;
 
   @IsOptional()
+  @Transform(({ value }) => normalizeUrl(value))
   @IsUrl()
   githubUrl?: string;
 
   @IsOptional()
+  @Transform(({ value }) => normalizeUrl(value))
   @IsUrl()
   mySkillsPlusUrl?: string;
 

@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useAuth } from '@/lib/auth';
 import { apiFetch, downloadCsv } from '@/lib/api';
 import { resolveFileUrl } from '@/lib/files';
+import { normalizeExternalUrl } from '@/lib/externalUrl';
 import { useTaxonomy } from '@/lib/useTaxonomy';
 import { AdminTabs } from '@/components/layout/AdminTabs';
 import { Card } from '@/components/ui/Card';
@@ -223,7 +224,7 @@ export default function AdminStudentsPage() {
                 )}
                 {student.linkedinUrl && (
                   <a
-                    href={student.linkedinUrl}
+                    href={normalizeExternalUrl(student.linkedinUrl)}
                     target="_blank"
                     rel="noreferrer"
                     className="font-semibold text-sp-blue"
