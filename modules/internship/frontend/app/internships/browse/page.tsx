@@ -5,6 +5,7 @@ import { SearchBar } from '@/components/internships/SearchBar';
 import { FilterMemory } from '@/components/internships/FilterMemory';
 import { SortSelect } from '@/components/internships/SortSelect';
 import { ActiveFilterChips } from '@/components/internships/ActiveFilterChips';
+import { InternshipCard } from '@/components/internships/InternshipCard';
 import { InternshipListRow } from '@/components/internships/InternshipListRow';
 import { Pagination } from '@/components/internships/Pagination';
 import { RequestInternshipForm } from '@/components/internships/RequestInternshipForm';
@@ -12,7 +13,7 @@ import { SaveSearchButton } from '@/components/internships/SaveSearchButton';
 import { LinkButton } from '@/components/ui/Button';
 import { apiFetch } from '@/lib/api';
 import { getServerAuthToken } from '@/lib/serverAuth';
-import type { CategoryCount, PaginatedInternships } from '@/lib/types';
+import type { CategoryCount, Internship, PaginatedInternships } from '@/lib/types';
 import type { TaxonomyOption } from '@/lib/useTaxonomy';
 
 interface Props {
@@ -34,7 +35,10 @@ interface Props {
 
 const EMPTY_RESULT: PaginatedInternships = { items: [], total: 0, page: 1, pageSize: 12, totalPages: 1 };
 
-async function getInternships(params: Awaited<Props['searchParams']>): Promise<PaginatedInternships> {
+async function getInternships(
+  params: Awaited<Props['searchParams']>,
+  token: string | null,
+): Promise<PaginatedInternships> {
   const query = new URLSearchParams();
   if (params.q) query.set('q', params.q);
   if (params.location) query.set('location', params.location);
@@ -52,11 +56,27 @@ async function getInternships(params: Awaited<Props['searchParams']>): Promise<P
   // Forwarding the token (when present) is what lets the backend default to
   // relevance ranking for a logged-in student with skills set — an
   // anonymous request behaves exactly as before.
-  const token = await getServerAuthToken();
   try {
     return await apiFetch<PaginatedInternships>(`/internships${qs ? `?${qs}` : ''}`, { token });
   } catch {
     return EMPTY_RESULT;
+  }
+}
+
+// A dedicated relevance-ranked rail, independent of whatever filters/sort
+// the main list is using — same call the student dashboard already makes.
+// Only worth showing when the backend actually had something to match
+// against (a signed-in student with skills or preferences set); otherwise
+// this would just be "newest 4" mislabeled as a recommendation.
+async function getRecommendedInternships(token: string | null): Promise<Internship[]> {
+  if (!token) return [];
+  try {
+    const result = await apiFetch<PaginatedInternships>('/internships?sort=relevance&pageSize=4', { token });
+    return result.items.some((item) => item.matchPercent !== null && item.matchPercent !== undefined)
+      ? result.items
+      : [];
+  } catch {
+    return [];
   }
 }
 
@@ -95,13 +115,7 @@ async function getTaxonomy(listKey: string): Promise<TaxonomyOption[]> {
 
 export default async function InternshipsPage({ searchParams }: Props) {
   const params = await searchParams;
-  const [result, categories, modes, employmentTypes] = await Promise.all([
-    getInternships(params),
-    getCategories(),
-    getTaxonomy('work_mode'),
-    getTaxonomy('employment_type'),
-  ]);
-  const { items, total, page, totalPages } = result;
+  const token = await getServerAuthToken();
 
   const activeFilterCount = [
     params.category,
@@ -115,13 +129,29 @@ export default async function InternshipsPage({ searchParams }: Props) {
     params.stipendMin,
   ].filter(Boolean).length;
 
-  const pageStart = total === 0 ? 0 : (page - 1) * result.pageSize + 1;
-  const pageEnd = Math.min(page * result.pageSize, total);
-
   // Only worth chasing a broader result set when the search was actually
   // narrowed — if nothing was filtered/searched and it's still empty, the
   // whole catalog is empty and a second identical query wouldn't help.
   const hasNarrowing = activeFilterCount > 0 || Boolean(params.q);
+
+  // The recommended rail is its own, unfiltered relevance ranking — showing
+  // it alongside active filters/search or past page 1 would just be
+  // confusing noise next to results the student already deliberately
+  // narrowed down.
+  const isFirstPage = !params.page || params.page === '1';
+  const showRecommended = !hasNarrowing && isFirstPage;
+
+  const [result, categories, modes, employmentTypes, recommended] = await Promise.all([
+    getInternships(params, token),
+    getCategories(),
+    getTaxonomy('work_mode'),
+    getTaxonomy('employment_type'),
+    showRecommended ? getRecommendedInternships(token) : Promise.resolve([]),
+  ]);
+  const { items, total, page, totalPages } = result;
+
+  const pageStart = total === 0 ? 0 : (page - 1) * result.pageSize + 1;
+  const pageEnd = Math.min(page * result.pageSize, total);
   let fallback: PaginatedInternships | null = null;
   let fallbackIsSameCategory = false;
   if (items.length === 0 && hasNarrowing) {
@@ -156,6 +186,20 @@ export default async function InternshipsPage({ searchParams }: Props) {
           ★ Bookmarked
         </LinkButton>
       </div>
+
+      {recommended.length > 0 && (
+        <div>
+          <div className="mb-4">
+            <h2 className="text-lg font-bold text-sp-navy">Recommended for you</h2>
+            <p className="text-sm text-sp-ink-3">Matched against your skills and saved preferences</p>
+          </div>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {recommended.map((internship) => (
+              <InternshipCard key={internship.id} internship={internship} />
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-[272px_1fr]">
         <MobileFilterToggle activeCount={activeFilterCount}>
